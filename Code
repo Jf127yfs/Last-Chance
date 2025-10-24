@@ -135,11 +135,10 @@ const MATCH_CONFIG = {
     'Cars': 10,
     'Dancing': 10,
     'Film / movies': 10,
-    'Food (eating': 10,
+    'Food (eating, not cooking)': 10,  // Fixed: was split into two entries
     'Frying oil': 10,
     'Halloween orgy': 10,
     'Health Sciences': 10,
-    'not cooking)': 10,
     'politics': 10,
     'Pop Culture': 10,
     'Self realization & Occult; Fast cars and knives; Rock and Roll baby!': 10,
