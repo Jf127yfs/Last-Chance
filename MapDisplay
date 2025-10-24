@@ -709,127 +709,178 @@
      * 5. Optionally auto-starts route visualization
      */
     function loadData() {
+      // Check if we're in Google Apps Script environment
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        addLog('WARNING: Not in Google Apps Script environment');
+        addLog('Using sample data for demonstration');
+
+        // Generate sample data for local/standalone mode
+        const sampleData = generateSampleData();
+        handleDataLoad(sampleData);
+        return;
+      }
+
+      // Load from Google Apps Script backend
       google.script.run
-        .withSuccessHandler(function(data) {
-          if (data.error) {
-            addLog('ERROR: ' + data.error);
-            document.getElementById('loading').innerHTML =
-              '<div class="loading-text" style="color:#f00;">' + data.error + '</div>';
-            return;
-          }
-
-          zipData = data;
-
-          // Clear existing markers
-          markers.forEach(m => map.removeLayer(m));
-          markers = [];
-
-          // Create target marker with explicit display name
-          const targetDisplayName = data.target.displayName || data.target.zip || '5317 Charlotte';
-          targetMarker = createCircleMarker(
-            data.target.lat,
-            data.target.lng,
-            targetDisplayName,
-            data.target.count,
-            true
-          );
-          markers.push(targetMarker);
-
-          // Center map on target
-          map.setView([data.target.lat, data.target.lng], 11);
-
-          // Separate metro and non-metro
-          metroZips = [];
-          nonMetroZips = [];
-
-          data.zips.forEach(z => {
-            if (isInMetro(z.lat, z.lng)) {
-              metroZips.push(z);
-              const marker = createCircleMarker(z.lat, z.lng, z.zip, z.count, false);
-              markers.push(marker);
-            } else {
-              nonMetroZips.push(z);
-            }
-          });
-
-          // Sort by count
-          metroZips.sort((a, b) => b.count - a.count);
-          nonMetroZips.sort((a, b) => b.count - a.count);
-
-          // Update stats
-          document.getElementById('targetCount').textContent = data.target.count;
-          document.getElementById('totalRespondents').textContent = data.totalRespondents;
-          document.getElementById('totalZips').textContent = data.totalCount;
-          document.getElementById('metroCount').textContent = metroZips.length;
-          document.getElementById('nonMetroCount').textContent = nonMetroZips.length;
-
-          // Populate lists with click handlers
-          const metroList = document.getElementById('metroList');
-          metroList.innerHTML = '';
-          metroZips.forEach(z => {
-            const div = document.createElement('div');
-            div.className = 'zip-item';
-            div.onclick = function() { zoomToZip(z.lat, z.lng); };
-
-            const zipCode = document.createElement('span');
-            zipCode.className = 'zip-code';
-            zipCode.textContent = z.zip;
-
-            const zipCount = document.createElement('span');
-            zipCount.className = 'zip-count';
-            zipCount.textContent = z.count;
-
-            div.appendChild(zipCode);
-            div.appendChild(zipCount);
-            metroList.appendChild(div);
-          });
-
-          const nonMetroList = document.getElementById('nonMetroList');
-          if (nonMetroZips.length > 0) {
-            nonMetroList.innerHTML = '';
-            nonMetroZips.forEach(z => {
-              const div = document.createElement('div');
-              div.className = 'zip-item non-metro';
-
-              const zipCode = document.createElement('span');
-              zipCode.className = 'zip-code';
-              zipCode.textContent = z.zip;
-
-              const zipCount = document.createElement('span');
-              zipCount.className = 'zip-count';
-              zipCount.textContent = z.count;
-
-              div.appendChild(zipCode);
-              div.appendChild(zipCount);
-              nonMetroList.appendChild(div);
-            });
-          } else {
-            nonMetroList.innerHTML = '<div style="color:#888;padding:8px;font-size:9px;">None</div>';
-          }
-
-          document.getElementById('loading').style.display = 'none';
-
-          addLog('Data loaded: ' + data.totalRespondents + ' total respondents');
-          addLog('Metro: ' + metroZips.length + ' zips, Non-metro: ' + nonMetroZips.length + ' zips');
-          addLog('Target: ' + (data.target.displayName || data.target.zip || '5317 Charlotte'));
-
-          // ========== AUTO-START ROUTING ==========
-          if (APP_CONFIG.AUTO_START_ROUTING && metroZips.length > 0) {
-            addLog('Auto-starting route network in ' + (APP_CONFIG.AUTO_START_DELAY_MS / 1000) + ' seconds...');
-            setTimeout(function() {
-              drawConnections();
-            }, APP_CONFIG.AUTO_START_DELAY_MS);
-          } else {
-            addLog('Click ROUTE NETWORK to draw road-following connections');
-          }
-          // ========================================
-        })
+        .withSuccessHandler(handleDataLoad)
         .withFailureHandler(function(err) {
           addLog('CRITICAL ERROR: ' + err.message);
           document.getElementById('loading').innerHTML =
-            '<div class="loading-text" style="color:#f00;">ERROR</div>';
+            '<div class="loading-text" style="color:#f00;">ERROR: ' + err.message + '</div>' +
+            '<div class="loading-text" style="color:#888; font-size:10px; margin-top:10px;">Running in standalone mode. Deploy to Google Apps Script for live data.</div>';
+
+          // Try to use sample data as fallback
+          addLog('Attempting to load sample data as fallback...');
+          const sampleData = generateSampleData();
+          handleDataLoad(sampleData);
         })
         .getAllZipData();
+    }
+
+    /**
+     * Handle data loading (from backend or sample data)
+     */
+    function handleDataLoad(data) {
+      if (data.error) {
+        addLog('ERROR: ' + data.error);
+        document.getElementById('loading').innerHTML =
+          '<div class="loading-text" style="color:#f00;">' + data.error + '</div>';
+        return;
+      }
+
+      zipData = data;
+
+      // Clear existing markers
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      // Create target marker with explicit display name
+      const targetDisplayName = data.target.displayName || data.target.zip || '5317 Charlotte';
+      targetMarker = createCircleMarker(
+        data.target.lat,
+        data.target.lng,
+        targetDisplayName,
+        data.target.count,
+        true
+      );
+      markers.push(targetMarker);
+
+      // Center map on target
+      map.setView([data.target.lat, data.target.lng], 11);
+
+      // Separate metro and non-metro
+      metroZips = [];
+      nonMetroZips = [];
+
+      data.zips.forEach(z => {
+        if (isInMetro(z.lat, z.lng)) {
+          metroZips.push(z);
+          const marker = createCircleMarker(z.lat, z.lng, z.zip, z.count, false);
+          markers.push(marker);
+        } else {
+          nonMetroZips.push(z);
+        }
+      });
+
+      // Sort by count
+      metroZips.sort((a, b) => b.count - a.count);
+      nonMetroZips.sort((a, b) => b.count - a.count);
+
+      // Update stats
+      document.getElementById('targetCount').textContent = data.target.count;
+      document.getElementById('totalRespondents').textContent = data.totalRespondents;
+      document.getElementById('totalZips').textContent = data.totalCount;
+      document.getElementById('metroCount').textContent = metroZips.length;
+      document.getElementById('nonMetroCount').textContent = nonMetroZips.length;
+
+      // Populate lists with click handlers
+      const metroList = document.getElementById('metroList');
+      metroList.innerHTML = '';
+      metroZips.forEach(z => {
+        const div = document.createElement('div');
+        div.className = 'zip-item';
+        div.onclick = function() { zoomToZip(z.lat, z.lng); };
+
+        const zipCode = document.createElement('span');
+        zipCode.className = 'zip-code';
+        zipCode.textContent = z.zip;
+
+        const zipCount = document.createElement('span');
+        zipCount.className = 'zip-count';
+        zipCount.textContent = z.count;
+
+        div.appendChild(zipCode);
+        div.appendChild(zipCount);
+        metroList.appendChild(div);
+      });
+
+      const nonMetroList = document.getElementById('nonMetroList');
+      if (nonMetroZips.length > 0) {
+        nonMetroList.innerHTML = '';
+        nonMetroZips.forEach(z => {
+          const div = document.createElement('div');
+          div.className = 'zip-item non-metro';
+
+          const zipCode = document.createElement('span');
+          zipCode.className = 'zip-code';
+          zipCode.textContent = z.zip;
+
+          const zipCount = document.createElement('span');
+          zipCount.className = 'zip-count';
+          zipCount.textContent = z.count;
+
+          div.appendChild(zipCode);
+          div.appendChild(zipCount);
+          nonMetroList.appendChild(div);
+        });
+      } else {
+        nonMetroList.innerHTML = '<div style="color:#888;padding:8px;font-size:9px;">None</div>';
+      }
+
+      document.getElementById('loading').style.display = 'none';
+
+      addLog('Data loaded: ' + data.totalRespondents + ' total respondents');
+      addLog('Metro: ' + metroZips.length + ' zips, Non-metro: ' + nonMetroZips.length + ' zips');
+      addLog('Target: ' + (data.target.displayName || data.target.zip || '5317 Charlotte'));
+
+      // ========== AUTO-START ROUTING ==========
+      if (APP_CONFIG.AUTO_START_ROUTING && metroZips.length > 0) {
+        addLog('Auto-starting route network in ' + (APP_CONFIG.AUTO_START_DELAY_MS / 1000) + ' seconds...');
+        setTimeout(function() {
+          drawConnections();
+        }, APP_CONFIG.AUTO_START_DELAY_MS);
+      } else {
+        addLog('Click ROUTE NETWORK to draw road-following connections');
+      }
+      // ========================================
+    }
+
+    /**
+     * Generate sample zip code data for demonstration/local mode
+     */
+    function generateSampleData() {
+      return {
+        target: {
+          lat: 39.0639,
+          lng: -94.5744,
+          zip: '64110',
+          count: 15,
+          displayName: '5317 Charlotte'
+        },
+        zips: [
+          { lat: 39.0997, lng: -94.5786, zip: '64111', count: 12 },
+          { lat: 39.1017, lng: -94.6274, zip: '64112', count: 8 },
+          { lat: 39.0458, lng: -94.5938, zip: '64108', count: 10 },
+          { lat: 39.0836, lng: -94.5783, zip: '64106', count: 7 },
+          { lat: 39.0231, lng: -94.5722, zip: '64109', count: 9 },
+          { lat: 39.1167, lng: -94.5897, zip: '64116', count: 6 },
+          { lat: 38.9517, lng: -94.6544, zip: '64131', count: 5 },
+          { lat: 39.2919, lng: -94.5697, zip: '64154', count: 4 },
+          { lat: 38.8981, lng: -94.7294, zip: '64145', count: 3 }
+        ],
+        totalCount: 10,
+        totalRespondents: 79
+      };
     }
 
     // Initialize
@@ -838,12 +889,18 @@
     loadIntroText();
 
     function loadIntroText() {
+      // Check if we're in Google Apps Script environment
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        document.getElementById('introText').textContent = '▸▸▸ WELCOME TO THE ZIP NETWORK VISUALIZATION ▸▸▸ STANDALONE DEMO MODE ▸▸▸';
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function(text) {
           document.getElementById('introText').textContent = '▸▸▸ ' + text + ' ▸▸▸';
         })
         .withFailureHandler(function(err) {
-          document.getElementById('introText').textContent = '▸▸▸ INPUT TEXT HERE ▸▸▸';
+          document.getElementById('introText').textContent = '▸▸▸ WELCOME TO THE ZIP NETWORK VISUALIZATION ▸▸▸';
         })
         .getIntroText();
     }
