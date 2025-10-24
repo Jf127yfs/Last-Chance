@@ -303,23 +303,20 @@ function onOpen() {
  */
 
 /**
- * Helper function to serve HTML with aggressive cache-busting headers
+ * Helper function to serve HTML files
  *
- * This ensures Google Apps Script always serves the latest version of HTML files
- * by preventing both browser and server-side caching. Critical for deployment updates.
+ * Cache-busting is handled via meta tags in the HTML files themselves,
+ * as Google Apps Script's addMetaTag() doesn't support cache-control tags.
  *
  * @param {string} fileName - Name of the HTML file to serve
  * @param {string} title - Page title
- * @returns {HtmlOutput} HTML output with cache-busting headers
+ * @returns {HtmlOutput} HTML output ready to serve
  */
 function servePageNoCaching(fileName, title) {
   return HtmlService.createTemplateFromFile(fileName)
     .evaluate()
     .setTitle(title)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('cache-control', 'no-cache, no-store, must-revalidate')
-    .addMetaTag('pragma', 'no-cache')
-    .addMetaTag('expires', '0');
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function doGet(e) {
