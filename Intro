@@ -313,25 +313,6 @@
       > Generating visualizations...
     </div>
 
-    <!-- Image gallery placeholder for future wall photos -->
-    <div class="gallery">
-      <a href="https://drive.google.com/file/d/1S2_l_OMDEoiidxPSYW6zOkhvE2XD453y/view?usp=drive_link" target="_blank" class="gallery-item">
-        <img src="https://drive.google.com/thumbnail?id=1S2_l_OMDEoiidxPSYW6zOkhvE2XD453y&sz=w500" class="gallery-photo" alt="Previous Wall 2024">
-        <div class="gallery-label">PREVIOUS WALL 2024</div>
-      </a>
-      <a href="https://drive.google.com/file/d/1YWXP6ljZ6JQ5EW7rERxe8o9c66LBN1VH/view?usp=drive_link" target="_blank" class="gallery-item">
-        <img src="https://drive.google.com/thumbnail?id=1YWXP6ljZ6JQ5EW7rERxe8o9c66LBN1VH&sz=w500" class="gallery-photo" alt="Previous Wall 2023">
-        <div class="gallery-label">PREVIOUS WALL 2023</div>
-      </a>
-      <a href="https://drive.google.com/file/d/1S2_l_OMDEoiidxPSYW6zOkhvE2XD453y/view?usp=drive_link" target="_blank" class="gallery-item">
-        <img src="https://drive.google.com/thumbnail?id=1S2_l_OMDEoiidxPSYW6zOkhvE2XD453y&sz=w500" class="gallery-photo" alt="Previous Wall 2022">
-        <div class="gallery-label">PREVIOUS WALL 2022</div>
-      </a>
-      <div class="gallery-item coming-soon">
-        <div class="gallery-photo">COMING SOON<br>LIVE FEED</div>
-        <div class="gallery-label">LIVE FEED</div>
-      </div>
-    </div>
 
     <!-- Interpretation pause -->
     <div class="interpretation-pause">
