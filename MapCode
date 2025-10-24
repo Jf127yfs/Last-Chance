@@ -16,9 +16,12 @@
 
 // Configuration object for map functionality
 // NOTE: Renamed to MAP_CONFIG to avoid conflict with CONFIG in Code.gs
+// IMPORTANT: ZIP_COLUMN is 1-indexed for use with getRange()
+// CONFIG.COL.ZIP (from Code.gs) is 0-indexed = 5, so ZIP_COLUMN = 5 + 1 = 6
 const MAP_CONFIG = {
   SHEET_NAME: 'FRC',                                    // Main data sheet (Form Responses Clean)
-  ZIP_COLUMN: 6,                                         // Column F (1-indexed): Current 5 Digit Zip Code
+  ZIP_COLUMN: 6,                                         // Column F (1-indexed for getRange): Current 5 Digit Zip Code
+                                                         // This equals CONFIG.COL.ZIP + 1
   TARGET_ZIP: '64110',                                   // The target zip code to highlight
   TARGET_ADDRESS: '5317 Charlotte St, Kansas City, MO', // Full address for precise geocoding
   TARGET_DISPLAY_NAME: '5317 Charlotte',                // Display name for the target location

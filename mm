@@ -934,7 +934,7 @@
     }
 
     // ============================================================================
-    // WAITING SCREEN (< 15 guests)
+    // WAITING SCREEN (< 6 guests)
     // ============================================================================
     
     function showWaitingScreen(currentCount) {
@@ -943,8 +943,8 @@
         <div class="waiting-screen">
           <div class="waiting-icon">🎃</div>
           <div class="waiting-message">Summoning More Guests...</div>
-          <div class="waiting-count">${currentCount} / 15</div>
-          <div class="waiting-subtext">The party needs at least 15 checked-in guests to start matching.</div>
+          <div class="waiting-count">${currentCount} / 6</div>
+          <div class="waiting-subtext">The party needs at least 6 checked-in guests to start matching.</div>
           <div class="waiting-subtext" style="margin-top: 20px;">Check-in at the front desk to join the fun!</div>
         </div>
       `;
@@ -970,6 +970,8 @@
 
       const match = state.matches[state.currentMatchIndex];
       const stage = document.getElementById('mainMatchStage');
+      // NOTE: Adding +10% boost to make scores more visually appealing (50% → 60%, etc.)
+      // This ensures even moderate matches feel positive and engaging
       const displayScore = Math.round((match.similarity + 0.10) * 100);
 
       // Show calculating animation first

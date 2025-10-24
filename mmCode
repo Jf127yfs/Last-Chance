@@ -59,6 +59,7 @@ function getCompatibilityMatches() {
     // Build map of checked-in guests with their data
     // KEY CHANGE: Use UID as the key (not Screen Name) because Screen Names can change in FRC
     const checkedInGuests = {};
+    const uidOccurrences = {}; // Track duplicate UIDs
     let totalRows = 0;
     let checkedInCount = 0;
     let skippedNoName = 0;
@@ -93,10 +94,20 @@ function getCompatibilityMatches() {
         }
 
         if (screenName && uid) {
-          // Use UID as key (stable identifier)
+          // Track duplicate UIDs
+          if (checkedInGuests[uid]) {
+            if (!uidOccurrences[uid]) {
+              uidOccurrences[uid] = [checkedInGuests[uid].screenName];
+            }
+            uidOccurrences[uid].push(screenName);
+            Logger.log('⚠️ DUPLICATE UID "' + uid + '" - previous: "' + checkedInGuests[uid].screenName + '", new: "' + screenName + '" (row ' + (i + 1) + ')');
+          }
+
+          // Use UID as key (stable identifier) - last occurrence wins
           checkedInGuests[uid] = {
             screenName: screenName,
             uid: uid,
+            rowIndex: i + 1,
             zodiac: String(row[CONFIG.COL.ZODIAC] || '---').trim(),
             music: String(row[CONFIG.COL.MUSIC] || '---').trim(),
             photoUrl: convertDriveUrlToDirectLink(String(row[CONFIG.COL.PHOTO_URL] || '').trim()),
@@ -118,10 +129,14 @@ function getCompatibilityMatches() {
     Logger.log('   Skipped (no UID): ' + skippedNoUID);
     Logger.log('✅ Valid checked-in guests: ' + checkedInUIDs.length);
 
-    // DEBUG: Show discrepancy between checked-in rows and unique guests
-    if (checkedInCount > checkedInUIDs.length) {
-      Logger.log('⚠️ WARNING: ' + (checkedInCount - checkedInUIDs.length) + ' duplicate UIDs detected!');
-      Logger.log('   This means multiple rows have the same UID (last occurrence wins)');
+    // Report duplicate UIDs with details
+    const duplicateCount = Object.keys(uidOccurrences).length;
+    if (duplicateCount > 0) {
+      Logger.log('⚠️ WARNING: ' + duplicateCount + ' duplicate UIDs detected!');
+      Logger.log('   Duplicate UIDs and their screen names:');
+      for (const uid in uidOccurrences) {
+        Logger.log('     UID "' + uid + '": ' + uidOccurrences[uid].join(', ') + ' (using last: "' + checkedInGuests[uid].screenName + '")');
+      }
     }
 
     // DEBUG: Show first 10 valid guest names
@@ -170,6 +185,19 @@ function getCompatibilityMatches() {
     }
 
     Logger.log('   ✅ Matched columns for ' + Object.keys(guestColMap).length + ' checked-in guests');
+
+    // STALENESS CHECK: Warn if Guest_Similarity matrix appears outdated
+    const matrixGuestCount = simHeaders.length - 1; // Exclude first column (row labels)
+    const checkedInGuestCount = checkedInUIDs.length;
+    const matchedGuestCount = Object.keys(guestColMap).length;
+
+    if (matchedGuestCount < checkedInGuestCount * 0.8) {
+      Logger.log('⚠️ STALENESS WARNING: Guest_Similarity matrix may be outdated!');
+      Logger.log('   - Matrix has ' + matrixGuestCount + ' guests');
+      Logger.log('   - FRC has ' + checkedInGuestCount + ' checked-in guests');
+      Logger.log('   - Only ' + matchedGuestCount + ' matched (' + Math.round(matchedGuestCount / checkedInGuestCount * 100) + '%)');
+      Logger.log('   - RECOMMENDATION: Run ANALYTICSTest.buildGuestSimilarity() to rebuild matrix');
+    }
 
     // DEBUG: Show first few checked-in guests and first few similarity headers
     if (Object.keys(guestColMap).length < checkedInUIDs.length) {
@@ -717,6 +745,7 @@ function computeSuperlatives(guests) {
     // ========================================================================
     // RETURN ALL 8 SUPERLATIVES
     // ========================================================================
+    // NOTE: All displayed scores get +10% boost for better UX (makes scores feel more positive)
     return {
       bestOverallMatch: bestOverallMatch.score > 0 ? {
         name1: bestOverallMatch.pair[0],

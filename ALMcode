@@ -58,29 +58,29 @@ function buildDanceTeams(count) {
     const dancers = [];
     for (let i = 1; i < frcData.length; i++) {
       const row = frcData[i];
-      const checkedIn = String(row[27] || '').trim().toUpperCase(); // Column AB
+      const checkedIn = String(row[CONFIG.COL.CHECKED_IN] || '').trim().toUpperCase();
 
       if (checkedIn === 'Y') {
-        const screenName = String(row[24] || '').trim(); // Column Y
-        const uid = String(row[25] || '').trim(); // Column Z
+        const screenName = String(row[CONFIG.COL.SCREEN_NAME] || '').trim();
+        const uid = String(row[CONFIG.COL.UID] || '').trim();
 
         if (screenName && uid) {
           // Parse interests (comma-separated)
           const interests = [
-            String(row[15] || '').trim(),
-            String(row[16] || '').trim(),
-            String(row[17] || '').trim()
+            String(row[CONFIG.COL.INTEREST_1] || '').trim(),
+            String(row[CONFIG.COL.INTEREST_2] || '').trim(),
+            String(row[CONFIG.COL.INTEREST_3] || '').trim()
           ].filter(i => i !== '');
 
           dancers.push({
             uid: uid,
             screenName: screenName,
-            photoUrl: convertDriveUrlToDirectLink(String(row[29] || '').trim()) || ABBY_PLACEHOLDER,
-            music: String(row[18] || 'Various').trim(), // Column S (Music Preference)
-            age: String(row[3] || '').trim(), // Column D (Age Range)
+            photoUrl: convertDriveUrlToDirectLink(String(row[CONFIG.COL.PHOTO_URL] || '').trim()) || ABBY_PLACEHOLDER,
+            music: String(row[CONFIG.COL.MUSIC] || 'Various').trim(),
+            age: String(row[CONFIG.COL.AGE] || '').trim(),
             interests: interests,
-            industry: String(row[9] || '').trim(), // Column J
-            zodiac: String(row[2] || '').trim() // Column C
+            industry: String(row[CONFIG.COL.INDUSTRY] || '').trim(),
+            zodiac: String(row[CONFIG.COL.ZODIAC] || '').trim()
           });
         }
       }

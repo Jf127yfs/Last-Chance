@@ -154,7 +154,7 @@ function getActiveVillagers() {
       uid: uid,
       screenName: sourceRow[sourceHeaders.indexOf('Screen Name')], // Always pull from FRC for latest
       bio: bioRow[2],
-      checkedIn: sourceRow[sourceHeaders.indexOf('Checked-In')], // Pull from FRC for real-time check-in status
+      checkedIn: String(sourceRow[sourceHeaders.indexOf('Checked-In')] || '').trim().toUpperCase(), // Pull from FRC for real-time check-in status
       ddd: bioRow[5] || 0,
       inPrison: bioRow[6] === 'Yes',
 
@@ -174,9 +174,9 @@ function getActiveVillagers() {
       position: null,
       connections: []
     };
-    
-    // Only include checked-in villagers
-    if (villager.checkedIn && villager.checkedIn.toUpperCase() === 'Y') {
+
+    // Only include checked-in villagers (handle both 'Y' and 'YES')
+    if (villager.checkedIn === 'Y' || villager.checkedIn === 'YES') {
       villagers.push(villager);
     }
   }
