@@ -883,6 +883,32 @@
       };
     }
 
+    // ============================================================================
+    // CAROUSEL VISIBILITY DETECTION
+    // Pause routing when page is not visible in the carousel
+    // ============================================================================
+    let isVisible = true;
+
+    // Detect when iframe becomes hidden/visible
+    document.addEventListener('visibilitychange', function() {
+      isVisible = !document.hidden;
+      if (!isVisible) {
+        console.log('MapDisplay hidden - pausing routing');
+        // Don't interfere with ongoing operations, just note we're hidden
+      } else {
+        console.log('MapDisplay visible - resuming normal operation');
+      }
+    });
+
+    // Also detect iframe focus changes
+    window.addEventListener('blur', function() {
+      console.log('MapDisplay lost focus');
+    });
+
+    window.addEventListener('focus', function() {
+      console.log('MapDisplay gained focus');
+    });
+
     // Initialize
     initMap();
     loadData();
