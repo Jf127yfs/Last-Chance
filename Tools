@@ -1,0 +1,3747 @@
+/**
+ * ============================================================================
+ * TOOLS - TESTING AND UTILITY FUNCTIONS
+ * ============================================================================
+ * Helper functions for testing, debugging, and system maintenance
+ *
+ * CONTENTS:
+ * 1. Testing Functions - Backend connectivity and data validation
+ * 2. Analysis Functions - Check-in guest analysis and data completeness
+ * 3. Documentation Functions - Master_Desc and Response Dictionary generation
+ *
+ * DEPENDENCIES:
+ * - Uses CONFIG from Code.gs for sheet names and column mappings
+ * - Requires getFRCSheet() and getCheckedInGuests() from Code.gs
+ *
+ * Last Updated: 2025-10-23
+ * ============================================================================
+ */
+
+// ============================================================================
+// SECTION 1: TESTING FUNCTIONS
+// ============================================================================
+
+/**
+ * Test backend connectivity from frontend
+ * Used by HTML pages to verify google.script.run is working
+ */
+function testBackend() {
+  showMessage('Testing backend...', 'info');
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showMessage('✅ ' + result.message, 'success');
+      console.log('Backend response:', result);
+    })
+    .withFailureHandler(function(error) {
+      showMessage('❌ Backend error: ' + error.message, 'error');
+      console.error('Connection failed:', error);
+    })
+    .testConnection();
+}
+
+/**
+ * Test basic spreadsheet access and permissions
+ * Verifies ability to read FRC sheet and count rows
+ *
+ * @returns {Object} Success status and message
+ */
+function testBasicAccess() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    Logger.log('✅ Can access spreadsheet: ' + ss.getName());
+
+    // Use CONFIG.SHEETS.FRC instead of hardcoded 'FRC'
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.FRC);
+    if (!sheet) {
+      Logger.log('❌ FRC sheet not found!');
+      Logger.log('Available sheets: ' + ss.getSheets().map(s => s.getName()).join(', '));
+      return {success: false, message: 'FRC sheet not found'};
+    }
+
+    Logger.log('✅ Can access FRC sheet');
+    Logger.log('✅ Row count: ' + sheet.getLastRow());
+
+    return {success: true, message: 'All permissions OK'};
+
+  } catch (error) {
+    Logger.log('❌ ERROR: ' + error.toString());
+    return {success: false, message: error.toString()};
+  }
+}
+
+/**
+ * Quick diagnostic test - lists all sheets and FRC headers
+ * Useful for debugging sheet structure issues
+ */
+function quickTest() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log('Spreadsheet: ' + ss.getName());
+
+  const sheets = ss.getSheets().map(s => s.getName());
+  Logger.log('All sheets: ' + sheets.join(', '));
+
+  // Try to get FRC using CONFIG
+  let frc = ss.getSheetByName(CONFIG.SHEETS.FRC);
+  if (!frc) {
+    // Fallback to alternative name
+    frc = ss.getSheetByName('Form Responses (Clean)');
+  }
+
+  if (frc) {
+    Logger.log('Found sheet: ' + frc.getName());
+    const headers = frc.getRange(1, 1, 1, 30).getValues()[0];
+    Logger.log('Headers: ' + JSON.stringify(headers));
+  } else {
+    Logger.log('❌ NO SHEET FOUND!');
+  }
+}
+/**
+ * Test check-in functionality with sample data
+ * Replace the sample values with real data from your FRC sheet
+ *
+ * @returns {Object} Check-in result object
+ */
+function testWithRealData() {
+  Logger.log('=== TESTING CHECK-IN WITH REAL DATA ===');
+
+  // REPLACE THESE VALUES with actual guest data from FRC sheet:
+  const result = checkInGuest('64110', 'man', '10/07');
+
+  Logger.log('Result: ' + JSON.stringify(result, null, 2));
+
+  return result;
+}
+
+// ============================================================================
+// SECTION 2: ANALYSIS FUNCTIONS
+// ============================================================================
+
+/**
+ * Analyze checked-in guests and their data completeness
+ *
+ * FUNCTION PURPOSE:
+ * - Counts total checked-in guests
+ * - Shows sample guest data structure
+ * - Reports data completeness (photos, interests, music)
+ *
+ * DATA SOURCE: FRC sheet, Column AB (Checked-In = "Y")
+ *
+ * @returns {Object} Analysis results with total count and sample guest
+ */
+function analyzeCheckedInGuests() {
+  Logger.log('=== ANALYZING CHECKED-IN GUESTS ===\n');
+
+  const guests = getCheckedInGuests();
+
+  Logger.log(`Total checked-in guests: ${guests.length}`);
+
+  if (guests.length > 0) {
+    Logger.log('\n=== SAMPLE GUEST DATA ===');
+    const sample = guests[0];
+    Logger.log(JSON.stringify(sample, null, 2));
+
+    Logger.log('\n=== DATA COMPLETENESS ===');
+    const withPhotos = guests.filter(g => g.photoUrl).length;
+    const withInterests = guests.filter(g => g.interest1 || g.interest2 || g.interest3).length;
+    const withMusic = guests.filter(g => g.music).length;
+
+    Logger.log(`- Guests with photos: ${withPhotos}/${guests.length}`);
+    Logger.log(`- Guests with interests: ${withInterests}/${guests.length}`);
+    Logger.log(`- Guests with music prefs: ${withMusic}/${guests.length}`);
+  }
+
+  return {
+    total: guests.length,
+    sampleGuest: guests.length > 0 ? guests[0] : null
+  };
+}
+
+// ============================================================================
+// SECTION 3: DOCUMENTATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Generate Master_Desc sheet - comprehensive documentation of all sheets
+ *
+ * FUNCTION PURPOSE:
+ * Documents all sheets in the spreadsheet with:
+ * - Column names and numbers
+ * - Data types
+ * - Sample values
+ * - Row counts
+ * - Special notes
+ *
+ * OUTPUT SHEET: CONFIG.SHEETS.MASTER_DESC (Master_Desc)
+ *
+ * This function analyzes every sheet and column to create a data dictionary
+ * that serves as the single source of truth for the spreadsheet structure.
+ */
+function generateMasterDesc() {
+  const ss = SpreadsheetApp.getActive();
+  const allSheets = ss.getSheets();
+
+  // Prepare output data
+  const output = [
+    ['Sheet Name', 'Column #', 'Column Name', 'Data Type', 'Sample Values', 'Row Count', 'Notes']
+  ];
+
+  allSheets.forEach(sheet => {
+    const sheetName = sheet.getName();
+
+    // Skip Master_Desc itself (use CONFIG reference)
+    if (sheetName === CONFIG.SHEETS.MASTER_DESC) return;
+    
+    const data = sheet.getDataRange().getValues();
+    const rowCount = data.length;
+    
+    if (rowCount === 0) {
+      output.push([sheetName, '', '(empty sheet)', '', '', 0, 'No data']);
+      return;
+    }
+    
+    const headers = data[0];
+    
+    // Document each column
+    headers.forEach((header, colIdx) => {
+      const colNum = colIdx + 1;
+      const colName = String(header || `(Column ${colNum})`).trim();
+      
+      // Analyze column data type and get samples
+      const analysis = analyzeColumn_(data, colIdx, sheetName);
+      
+      // Notes about special columns
+      let notes = '';
+
+      // Use CONFIG reference for data dictionary sheet
+      if (sheetName === CONFIG.SHEETS.DATA_DICT) {
+          if (colName === 'Sheet') notes = 'Source Sheet Name';
+          else if (colName === 'Column Header') notes = 'Original Column Name';
+          else if (colName === 'Column Number') notes = 'Original Column Letter';
+          else if (colName === 'Response Value') notes = 'Unique Response String';
+          else if (colName === 'Numerical Code / Status') notes = 'Assigned numerical code (or status)';
+          else if (colName === 'Number of Responses') notes = 'Frequency count for the response';
+          else if (colName === 'Notes') notes = 'Coding notes/Scale details';
+      } else {
+          // Notes for Form Responses 1 and any future data sheets
+          if (colName.startsWith('code_')) notes = 'Categorical code';
+          else if (colName.startsWith('oh_')) notes = 'One-hot encoded';
+          else if (colName.startsWith('has_')) notes = 'Presence flag';
+          else if (colName.toLowerCase().includes('timestamp')) notes = 'Timestamp';
+          else if (colName === 'UID') notes = 'Unique identifier';
+      }
+      
+      output.push([
+        sheetName,
+        colNum,
+        colName,
+        analysis.type,
+        analysis.samples,
+        rowCount - 1, // Data rows (excluding header)
+        notes
+      ]);
+    });
+    
+    // Add a blank row between sheets for readability
+    output.push(['', '', '', '', '', '', '']);
+  });
+  
+  // Write to Master_Desc sheet
+  writeMasterDesc_(output);
+  
+  // Format the sheet
+  formatMasterDesc_();
+  
+  SpreadsheetApp.getUi().alert(
+    `✅ Master_Desc generated!\n\n` +
+    `Documented ${allSheets.length - 1} sheets with ${output.length - 1} total columns.`
+  );
+}
+
+/**
+ * Analyze a column to determine data type and get sample values
+ *
+ * @param {Array} data - Sheet data array
+ * @param {number} colIdx - Column index (0-based)
+ * @param {string} sheetName - Name of the sheet being analyzed
+ * @returns {Object} Object with type and samples
+ * @private
+ */
+function analyzeColumn_(data, colIdx, sheetName) {
+  if (data.length < 2) {
+    return { type: 'Empty', samples: '' };
+  }
+  
+  // Get up to 3 unique non-empty sample values (excluding header)
+  const samples = [];
+  const seen = new Set();
+  
+  // Start from row 1 to skip header
+  for (let i = 1; i < data.length && samples.length < 3; i++) {
+    let val = data[i][colIdx];
+
+    // Skip rows marked as condensed text status (use CONFIG reference)
+    if (sheetName === CONFIG.SHEETS.DATA_DICT && colIdx === 3 && val === '--- Free-Text/Identifier ---') {
+        continue;
+    }
+    
+    if (val === null || val === undefined || val === '') continue;
+    
+    const valStr = String(val).trim();
+    if (valStr && !seen.has(valStr)) {
+      seen.add(valStr);
+
+      // Use short form for number of responses in the Master_Desc sample (use CONFIG reference)
+      if (sheetName === CONFIG.SHEETS.DATA_DICT && colIdx === 5) {
+          samples.push(`${valStr} responses`);
+      } else {
+          samples.push(valStr);
+      }
+    }
+  }
+  
+  // Determine data type
+  let type = 'Unknown';
+  if (samples.length > 0) {
+    const firstVal = data[1][colIdx];
+    
+    if (firstVal instanceof Date) {
+      type = 'Date';
+    } else if (typeof firstVal === 'number') {
+      // Check if it's all 0s and 1s (binary flag)
+      const allBinary = data.slice(1).every(row => {
+        const v = row[colIdx];
+        return v === 0 || v === 1 || v === '' || v === null;
+      });
+      type = allBinary ? 'Binary (0/1)' : 'Number';
+    } else if (typeof firstVal === 'string') {
+      // Check if it looks like codes (all numeric strings 1-N)
+      const allCodes = data.slice(1, Math.min(20, data.length)).every(row => {
+        const v = row[colIdx];
+        if (v === '' || v === null) return true;
+        const num = Number(v);
+        return isFinite(num) && num >= 1 && num <= 99999;
+      });
+      type = allCodes ? 'Code (1-N)' : 'Text';
+    }
+  }
+  
+  // Override for specific dictionary columns (use CONFIG reference)
+  if (sheetName === CONFIG.SHEETS.DATA_DICT) {
+      if (colIdx === 2) type = 'Column Letter'; // Column Number (E)
+      if (colIdx === 4) type = 'Code/Text Status'; // Numerical Code / Status
+      if (colIdx === 5) type = 'Number'; // Number of Responses
+  }
+  
+  return {
+    type: type,
+    samples: samples.join('; ')
+  };
+}
+
+/**
+ * Write output to Master_Desc sheet
+ *
+ * @param {Array} data - 2D array of output data
+ * @private
+ */
+function writeMasterDesc_(data) {
+  const ss = SpreadsheetApp.getActive();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DESC);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.MASTER_DESC, 0); // Insert as first sheet
+  } else {
+    sheet.clear();
+  }
+  
+  if (data.length === 0) return;
+  
+  // Use data[0].length to account for the actual number of columns (7)
+  sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+}
+
+/**
+ * Format Master_Desc sheet for better readability
+ * Adds colors, borders, column widths, and freezes header row
+ *
+ * @private
+ */
+function formatMasterDesc_() {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.MASTER_DESC);
+  if (!sheet) return;
+  
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 1 || lastCol < 1) return;
+  
+  // Format header row
+  const headerRange = sheet.getRange(1, 1, 1, lastCol);
+  headerRange
+    .setBackground('#434343')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(11);
+  
+  // Freeze header row
+  sheet.setFrozenRows(1);
+  
+  // Auto-resize all columns
+  for (let i = 1; i <= lastCol; i++) {
+    sheet.autoResizeColumn(i);
+  }
+  
+  // Set column widths for specific columns
+  sheet.setColumnWidth(1, 180); // Sheet Name
+  sheet.setColumnWidth(2, 80);  // Column #
+  sheet.setColumnWidth(3, 200); // Column Name
+  sheet.setColumnWidth(4, 120); // Data Type
+  sheet.setColumnWidth(5, 250); // Sample Values
+  sheet.setColumnWidth(6, 100); // Row Count
+  sheet.setColumnWidth(7, 150); // Notes
+  
+  // Add alternating row colors for each sheet
+  if (lastRow > 1) {
+    let currentSheet = '';
+    let useGray = false;
+    
+    for (let row = 2; row <= lastRow; row++) {
+      const sheetName = sheet.getRange(row, 1).getValue();
+      
+      if (sheetName && sheetName !== currentSheet) {
+        currentSheet = sheetName;
+        useGray = !useGray;
+      }
+      
+      if (sheetName) { // Only color non-empty rows
+        const rowRange = sheet.getRange(row, 1, 1, lastCol);
+        if (useGray) {
+          rowRange.setBackground('#f3f3f3');
+        }
+      }
+    }
+  }
+  
+  // Add borders
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, lastCol)
+      .setBorder(null, null, true, null, null, null, '#cccccc', SpreadsheetApp.BorderStyle.SOLID_THIN);
+  }
+  
+  // Center align column numbers and row counts
+  if (lastRow > 1) {
+    sheet.getRange(2, 2, lastRow - 1, 1).setHorizontalAlignment('center'); // Column #
+    sheet.getRange(2, 6, lastRow - 1, 1).setHorizontalAlignment('center'); // Row Count
+  }
+}
+
+/**
+ * ============================================================================
+ * CREATE RESPONSE DICTIONARY
+ * ============================================================================
+ *
+ * Creates a comprehensive dictionary (pan dict) of unique text responses
+ * from the "Form Responses 1" sheet and assigns a numerical code to each.
+ *
+ * PURPOSE:
+ * - Analyzes all text responses in the source sheet
+ * - Assigns numerical codes based on frequency
+ * - Creates a lookup table for data encoding
+ *
+ * OUTPUT SHEET: CONFIG.SHEETS.DATA_DICT (Response_Pan_Dictionary)
+ *
+ * The output sheet is structured by source column order, with responses
+ * sorted by frequency (most common first), including a "Number of Responses" column.
+ *
+ * NOTE: This function references "Form Responses 1" which is the original form
+ * data before it's cleaned into FRC. If you need to run this on FRC instead,
+ * update the SOURCE_SHEET constant below.
+ */
+function createResponseDictionary() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // SOURCE SHEET - This function intentionally uses the raw form data
+  // If your raw Google Forms sheet has a different name, update this
+  // Do NOT change this to FRC - this analyzes the original responses
+  const SOURCE_SHEET = "Form Responses 1"; // Original form responses (not FRC)
+  const sheet = ss.getSheetByName(SOURCE_SHEET);
+
+  if (!sheet) {
+    Logger.log(`Error: Sheet named "${SOURCE_SHEET}" not found. Please ensure the sheet name is correct.`);
+    SpreadsheetApp.getUi().alert(`Error: Sheet named "${SOURCE_SHEET}" not found.`);
+    return;
+  }
+
+  // Get actual sheet name for use in dictionary keys and output
+  const sheetName = sheet.getName();
+
+  // --- Configuration ---
+  const EXCLUDE_COLUMNS = ["Screen Name", "UID", "Timestamp", "Checked-In", "Check-in Time", "PHOTO_URL_COL"];
+  const CONDENSED_TEXT_COLUMNS = ["Birthday (MM/DD)", "Current 5 Digit Zip Code", "Current Favorite Artist", "Name one song you want to hear at the party."];
+  const INTEREST_HEADER = "Your General Interests (Choose 3)";
+  const SCALE_COLUMNS = ["If yes, how well do you know them?", "Which best describes your general social stance?"];
+
+  const SCALED_COLUMNS_NOTES = {
+    "If yes, how well do you know them?": {
+      "1": "Acquaintance", "2": "Know casually / See occasionally", "3": "Moderately known / Social connection",
+      "4": "Well known / Close friend", "5": "Extremely well / Very close"
+    },
+    "Which best describes your general social stance?": {
+      "1": "Introverted", "2": "Slightly introverted", "3": "Balanced / Ambivert",
+      "4": "Slightly extroverted", "5": "Extroverted"
+    }
+  };
+  // --- End Configuration ---
+  
+  
+  const range = sheet.getDataRange();
+  const values = range.getValues(); 
+
+  if (values.length < 2) {
+    SpreadsheetApp.getUi().alert("Error: Sheet is empty or only contains headers.");
+    return;
+  }
+
+  const headers = values[0];
+  const data = values.slice(1); 
+  
+  // Helper to convert column index (0-based) to letter (e.g., 0->A, 25->Z, 26->AA)
+  const colIndexToLetter = (index) => {
+    let letter = '';
+    while (index >= 0) {
+      letter = String.fromCharCode(65 + (index % 26)) + letter;
+      index = Math.floor(index / 26) - 1;
+    }
+    return letter;
+  };
+  
+  const fullPanDict = {}; 
+  const outputData = [
+    ["Sheet", "Column Header", "Column Number", "Response Value", "Numerical Code / Status", "Number of Responses", "Notes"]
+  ];
+  
+  
+  // 1. Loop through columns in order
+  headers.forEach((header, colIndex) => {
+    
+    const columnIndex = colIndex + 1; // 1-based index
+    const columnLetter = colIndexToLetter(colIndex);
+    
+    // Key format: "Sheet (Column Header) Column Number"
+    const dictKey = `${sheetName} (${header}) ${columnIndex}`;
+
+    // Metadata for the current column
+    const meta = { sheet: sheetName, row: 1, columnIndex: columnIndex, columnHeader: header };
+
+    // Check for explicit exclusions
+    if (EXCLUDE_COLUMNS.includes(header)) {
+      return; 
+    }
+
+    // Handle CONDENSED_TEXT_COLUMNS
+    if (CONDENSED_TEXT_COLUMNS.includes(header)) {
+      outputData.push([
+        sheetName, header, columnLetter, 
+        "--- Free-Text/Identifier ---", "Text Value", "N/A", 
+        "Not coded; unique values can be referenced from the source sheet."
+      ]);
+      return;
+    }
+
+    // --- Data Processing and Counting ---
+    
+    const responseCounts = {};
+    const isInterestHeader = header === INTEREST_HEADER;
+    
+    // 1. Calculate the frequency of each unique response
+    data.forEach(row => {
+      let cellValue = String(row[colIndex]).trim();
+      
+      if (!cellValue) return;
+      
+      let responsesToCount = [cellValue];
+      
+      if (isInterestHeader) {
+        // Split comma-separated values for multi-response
+        responsesToCount = cellValue.split(',').map(item => item.trim()).filter(item => item);
+      }
+      
+      responsesToCount.forEach(response => {
+        responseCounts[response] = (responseCounts[response] || 0) + 1;
+      });
+    });
+
+    const uniqueResponses = Object.keys(responseCounts);
+    
+    if (uniqueResponses.length > 0) {
+      let sortedResponses = uniqueResponses.map(response => ({
+        response: response,
+        count: responseCounts[response]
+      }));
+      
+      const isScaleColumn = SCALE_COLUMNS.includes(header);
+
+      // 2. Sort the responses: By COUNT (descending) first, then by the original value (alphabetically/numerically)
+      sortedResponses.sort((a, b) => {
+        if (isScaleColumn) {
+          const numA = parseInt(a.response, 10);
+          const numB = parseInt(b.response, 10);
+          return numA - numB;
+        }
+        
+        if (b.count !== a.count) {
+          return b.count - a.count; 
+        }
+        
+        return a.response.localeCompare(b.response);
+      });
+      
+      // 3. Assign Numerical Codes based on the final sorted order
+      const columnDict = {};
+      let sequentialCode = 1;
+
+      sortedResponses.forEach(item => {
+        const response = item.response;
+        const count = item.count;
+        let numCode;
+        let notes = "";
+
+        if (isScaleColumn) {
+          // Code IS the response value (1, 2, 3, 4, 5)
+          numCode = parseInt(response, 10);
+          notes = SCALED_COLUMNS_NOTES[header][response] || "";
+        } else {
+          // Code is based on frequency rank (1, 2, 3...)
+          numCode = sequentialCode;
+          sequentialCode++;
+        }
+        
+        // Finalize notes
+        if (header === "Recent purchase you’re most happy about") {
+            notes = "Response was numerically coded.";
+        } else if (isInterestHeader) {
+            notes = "Coded as part of a multi-response set.";
+        }
+        
+        // Store in the dictionary object
+        columnDict[response] = numCode;
+        
+        // Add to the output sheet array
+        outputData.push([
+          sheetName, header, columnLetter, 
+          response, numCode, count, notes
+        ]);
+      });
+
+      // Add the column's mapping and metadata to the main dictionary object
+      fullPanDict[dictKey] = { meta: meta, mapping: columnDict };
+    }
+  });
+
+  // --- Output Section ---
+
+  Logger.log("--- Full Pan Dictionary (JSON format) ---");
+  Logger.log(JSON.stringify(fullPanDict, null, 2));
+
+  // Create or update the persistent lookup sheet (use CONFIG reference)
+  let dictSheet = ss.getSheetByName(CONFIG.SHEETS.DATA_DICT);
+
+  if (dictSheet) {
+    dictSheet.clearContents();
+  } else {
+    dictSheet = ss.insertSheet(CONFIG.SHEETS.DATA_DICT);
+  }
+
+  if (outputData.length > 1) {
+    dictSheet.getRange(1, 1, outputData.length, 7).setValues(outputData);
+
+    // Formatting
+    dictSheet.setFrozenRows(1);
+    dictSheet.getRange(1, 1, 1, 7).setFontWeight("bold").setBackground("#cfe2f3");
+    dictSheet.autoResizeColumns(1, 7);
+
+    SpreadsheetApp.getUi().alert(
+      `Success! The response dictionary has been generated.\n\n` +
+      `Check the new sheet: "${CONFIG.SHEETS.DATA_DICT}"`
+    );
+  } else {
+     SpreadsheetApp.getUi().alert("No responses were found to process.");
+  }
+}
+
+// ============================================================================
+// SECTION 4: MATCHMAKING ANALYTICS
+// ============================================================================
+
+// analyzeMatchingPool() function removed - not needed per user request
+
+/**
+ * Generate comprehensive Gen_Report with Cramér's V correlation analysis
+ *
+ * FUNCTION PURPOSE:
+ * Creates statistical analysis report to identify patterns and correlations
+ * in guest data. Used to inform matchmaking algorithm design.
+ *
+ * DATA SOURCE:
+ * - FRC sheet (CONFIG.SHEETS.FRC)
+ * - ALL guests with timestamps (not just checked-in)
+ * - Guest count = rows with value in Column 1 (Timestamp)
+ *
+ * ATTRIBUTES ANALYZED (14 total, excluding ethnicity):
+ * Demographics: Age, Gender, Orientation, Education, Zodiac
+ * Professional: Industry, Role
+ * Personality: Social Stance, At Worst
+ * Interests: Interest_1, Interest_2, Interest_3, Music, Recent Purchase
+ * Social: Know Hosts
+ *
+ * OUTPUT SECTIONS:
+ * 1. Overview (guest count, attributes analyzed)
+ * 2. Cramér's V by Category (grouped analysis)
+ * 3. Full Cramér's V Matrix (all pairs)
+ * 4. Top 10 Correlations (strongest relationships)
+ * 5. Surprising Correlations (unexpected findings)
+ * 6. Frequency Distributions (value counts)
+ *
+ * @returns {boolean} Success status
+ */
+function generateGenReport() {
+  Logger.log('=== GENERATING GEN_REPORT ===');
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const frcSheet = ss.getSheetByName(CONFIG.SHEETS.FRC);
+
+  if (!frcSheet) {
+    SpreadsheetApp.getUi().alert('Error: FRC sheet not found');
+    return false;
+  }
+
+  // Get all data
+  const data = frcSheet.getDataRange().getValues();
+  const headers = data[0];
+
+  // Count guests with timestamps (Column 1 has value)
+  const guests = data.slice(1).filter(row => row && row.length > 0 && row[CONFIG.COL.TIMESTAMP]);
+  const totalGuests = guests.length;
+
+  Logger.log(`Total guests with timestamps: ${totalGuests}`);
+
+  if (totalGuests === 0) {
+    SpreadsheetApp.getUi().alert('Error: No guests found with timestamps');
+    return false;
+  }
+
+  // Helper function to pad rows to consistent width
+  const padRow = (row, width) => {
+    const padded = row.slice(); // Copy array
+    while (padded.length < width) {
+      padded.push(''); // Add empty cells
+    }
+    return padded;
+  };
+
+  // Define attribute groups for analysis (EXCLUDING ETHNICITY)
+  const attributes = {
+    // Demographics
+    'Age Range': { col: CONFIG.COL.AGE, category: 'Demographics' },
+    'Gender': { col: CONFIG.COL.GENDER, category: 'Demographics' },
+    'Orientation': { col: CONFIG.COL.ORIENTATION, category: 'Demographics' },
+    'Education': { col: CONFIG.COL.EDU, category: 'Demographics' },
+    'Zodiac': { col: CONFIG.COL.ZODIAC, category: 'Demographics' },
+
+    // Professional
+    'Industry': { col: CONFIG.COL.INDUSTRY, category: 'Professional' },
+    'Role': { col: CONFIG.COL.ROLE, category: 'Professional' },
+
+    // Personality
+    'Social Stance': { col: CONFIG.COL.SOCIAL_STANCE, category: 'Personality' },
+    'At Worst': { col: CONFIG.COL.AT_WORST, category: 'Personality' },
+
+    // Interests (HIGH priority for matching)
+    'Interest 1': { col: CONFIG.COL.INTEREST_1, category: 'Interests' },
+    'Interest 2': { col: CONFIG.COL.INTEREST_2, category: 'Interests' },
+    'Interest 3': { col: CONFIG.COL.INTEREST_3, category: 'Interests' },
+    'Music': { col: CONFIG.COL.MUSIC, category: 'Interests' },
+    'Recent Purchase': { col: CONFIG.COL.RECENT_PURCHASE, category: 'Interests' },
+
+    // Social
+    'Know Hosts': { col: CONFIG.COL.KNOW_HOSTS, category: 'Social' }
+  };
+
+  Logger.log(`Analyzing ${Object.keys(attributes).length} attributes`);
+
+  // Calculate Cramér's V for all pairs
+  const cramersMatrix = {};
+  const allPairs = [];
+  const attrNames = Object.keys(attributes);
+
+  Logger.log('Calculating Cramér\'s V for all pairs...');
+
+  for (let i = 0; i < attrNames.length; i++) {
+    const attr1 = attrNames[i];
+    // Don't overwrite if already exists (values set from previous iterations)
+    cramersMatrix[attr1] = cramersMatrix[attr1] || {};
+
+    for (let j = 0; j < attrNames.length; j++) {
+      const attr2 = attrNames[j];
+
+      if (i === j) {
+        cramersMatrix[attr1][attr2] = 1.0; // Perfect correlation with self
+      } else if (i < j) {
+        // Calculate Cramér's V
+        const v = calculateCramersV(
+          guests,
+          attributes[attr1].col,
+          attributes[attr2].col
+        );
+        cramersMatrix[attr1][attr2] = v;
+        cramersMatrix[attr2] = cramersMatrix[attr2] || {};
+        cramersMatrix[attr2][attr1] = v; // Symmetric
+
+        allPairs.push({
+          attr1: attr1,
+          attr2: attr2,
+          value: v,
+          cat1: attributes[attr1].category,
+          cat2: attributes[attr2].category
+        });
+      }
+    }
+  }
+
+  // Sort pairs by correlation strength
+  allPairs.sort((a, b) => b.value - a.value);
+  const top10 = allPairs.slice(0, 10);
+
+  // Find surprising correlations (moderate strength, unexpected categories)
+  const surprising = allPairs.filter(p =>
+    p.value > 0.2 && p.value < 0.5 && p.cat1 !== p.cat2
+  ).slice(0, 10);
+
+  Logger.log('Creating Gen_Report sheet...');
+
+  // Create or clear Gen_Report sheet
+  let reportSheet = ss.getSheetByName('Gen_Report');
+  if (reportSheet) {
+    reportSheet.clear();
+  } else {
+    reportSheet = ss.insertSheet('Gen_Report');
+  }
+
+  // Determine max column width (matrix has 1 label + 15 attributes = 16)
+  const MAX_COLS = attrNames.length + 1; // 16 columns
+
+  // Build report output
+  const output = [];
+
+  // SECTION 1: OVERVIEW
+  output.push(padRow(['GEN_REPORT - Statistical Analysis for Matchmaking Algorithm'], MAX_COLS));
+  output.push(padRow(['Generated:', new Date().toLocaleString()], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+  output.push(padRow(['OVERVIEW'], MAX_COLS));
+  output.push(padRow(['Total Guests (with timestamps):', totalGuests], MAX_COLS));
+  output.push(padRow(['Attributes Analyzed:', Object.keys(attributes).length], MAX_COLS));
+  output.push(padRow(['Ethnicity:', 'EXCLUDED (privacy)'], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+
+  // SECTION 2: TOP 10 CORRELATIONS
+  output.push(padRow(['TOP 10 STRONGEST CORRELATIONS (Cramér\'s V)'], MAX_COLS));
+  output.push(padRow(['Rank', 'Attribute 1', 'Attribute 2', 'Correlation', 'Category 1', 'Category 2'], MAX_COLS));
+  top10.forEach((p, i) => {
+    output.push(padRow([
+      i + 1,
+      p.attr1,
+      p.attr2,
+      p.value.toFixed(3),
+      p.cat1,
+      p.cat2
+    ], MAX_COLS));
+  });
+  output.push(padRow([''], MAX_COLS));
+
+  // SECTION 3: SURPRISING CORRELATIONS
+  output.push(padRow(['SURPRISING CORRELATIONS (Cross-category, moderate strength)'], MAX_COLS));
+  output.push(padRow(['Attribute 1', 'Attribute 2', 'Correlation', 'Category 1', 'Category 2'], MAX_COLS));
+  surprising.forEach(p => {
+    output.push(padRow([
+      p.attr1,
+      p.attr2,
+      p.value.toFixed(3),
+      p.cat1,
+      p.cat2
+    ], MAX_COLS));
+  });
+  output.push(padRow([''], MAX_COLS));
+
+  // SECTION 4: CRAMÉR'S V MATRIX (Full heatmap)
+  output.push(padRow(['FULL CRAMÉR\'S V MATRIX'], MAX_COLS));
+  const matrixHeader = [''].concat(attrNames);
+  output.push(padRow(matrixHeader, MAX_COLS));
+
+  attrNames.forEach(attr1 => {
+    const row = [attr1];
+    attrNames.forEach(attr2 => {
+      const value = cramersMatrix[attr1] && cramersMatrix[attr1][attr2] !== undefined
+        ? cramersMatrix[attr1][attr2].toFixed(3)
+        : '0.000';
+      row.push(value);
+    });
+    output.push(padRow(row, MAX_COLS));
+  });
+  output.push(padRow([''], MAX_COLS));
+
+  // SECTION 5: FREQUENCY DISTRIBUTIONS
+  output.push(padRow(['FREQUENCY DISTRIBUTIONS'], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+
+  Object.keys(attributes).forEach(attrName => {
+    const col = attributes[attrName].col;
+    const counts = {};
+
+    guests.forEach(guest => {
+      const value = String(guest[col] || 'N/A').trim();
+      counts[value] = (counts[value] || 0) + 1;
+    });
+
+    output.push(padRow([attrName + ' (' + attributes[attrName].category + ')'], MAX_COLS));
+    output.push(padRow(['Value', 'Count', 'Percentage'], MAX_COLS));
+
+    Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([value, count]) => {
+        output.push(padRow([
+          value,
+          count,
+          ((count / totalGuests) * 100).toFixed(1) + '%'
+        ], MAX_COLS));
+      });
+
+    output.push(padRow([''], MAX_COLS));
+  });
+
+  // Write to sheet (all rows now have MAX_COLS width)
+  if (output.length > 0) {
+    reportSheet.getRange(1, 1, output.length, MAX_COLS).setValues(output);
+  }
+
+  // Format sheet
+  reportSheet.getRange(1, 1, 1, MAX_COLS).setFontWeight('bold').setFontSize(14);
+  reportSheet.setFrozenRows(1);
+  reportSheet.autoResizeColumns(1, MAX_COLS);
+
+  // Highlight section headers
+  const sectionRows = [1, 9, 9 + top10.length + 2, 9 + top10.length + 2 + surprising.length + 2];
+  sectionRows.forEach(r => {
+    if (r <= output.length) {
+      reportSheet.getRange(r, 1, 1, MAX_COLS)
+        .setBackground('#4285f4')
+        .setFontColor('#ffffff')
+        .setFontWeight('bold');
+    }
+  });
+
+  Logger.log('Gen_Report created successfully!');
+
+  SpreadsheetApp.getUi().alert(
+    'Gen_Report Generated',
+    `Analysis complete!\n\n` +
+    `Total Guests: ${totalGuests}\n` +
+    `Attributes: ${Object.keys(attributes).length}\n` +
+    `Top Correlation: ${top10[0].attr1} ↔ ${top10[0].attr2} (${top10[0].value.toFixed(3)})\n\n` +
+    `Check the Gen_Report sheet for full analysis.`,
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+
+  return true;
+}
+
+/**
+ * Calculate Cramér's V statistic between two categorical variables
+ *
+ * @param {Array} data - Guest data array
+ * @param {number} col1 - First column index
+ * @param {number} col2 - Second column index
+ * @returns {number} Cramér's V value (0-1)
+ * @private
+ */
+function calculateCramersV(data, col1, col2) {
+  // Validate inputs
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    // Silently return 0 - calling function will handle logging
+    return 0;
+  }
+
+  if (col1 === undefined || col2 === undefined) {
+    // Silently return 0 - calling function will handle logging
+    return 0;
+  }
+
+  // Build contingency table
+  const table = {};
+  const row1Totals = {};
+  const col2Totals = {};
+  let n = 0;
+
+  data.forEach(row => {
+    if (!row || !Array.isArray(row)) return; // Skip invalid rows
+
+    const val1 = String(row[col1] || 'N/A').trim();
+    const val2 = String(row[col2] || 'N/A').trim();
+
+    if (!table[val1]) table[val1] = {};
+    table[val1][val2] = (table[val1][val2] || 0) + 1;
+
+    row1Totals[val1] = (row1Totals[val1] || 0) + 1;
+    col2Totals[val2] = (col2Totals[val2] || 0) + 1;
+    n++;
+  });
+
+  // Check if we have enough data
+  if (n === 0) {
+    Logger.log('WARNING: No valid data found for Cramér\'s V calculation');
+    return 0;
+  }
+
+  // Calculate chi-square
+  let chiSquare = 0;
+  Object.keys(table).forEach(val1 => {
+    Object.keys(table[val1]).forEach(val2 => {
+      const observed = table[val1][val2];
+      const expected = (row1Totals[val1] * col2Totals[val2]) / n;
+      if (expected > 0) { // Prevent division by zero
+        chiSquare += Math.pow(observed - expected, 2) / expected;
+      }
+    });
+  });
+
+  // Calculate Cramér's V
+  const r = Object.keys(row1Totals).length;
+  const c = Object.keys(col2Totals).length;
+  const minDim = Math.min(r - 1, c - 1);
+
+  // Prevent division by zero or invalid calculations
+  if (minDim <= 0 || n === 0) {
+    return 0;
+  }
+
+  const cramersV = Math.sqrt(chiSquare / (n * minDim));
+
+  // Return 0 if result is NaN or Infinity
+  return isFinite(cramersV) ? cramersV : 0;
+}
+
+/**
+ * ============================================================================
+ * GEN_ANALYTICS - UNIFIED ANALYTICS FRAMEWORK
+ * ============================================================================
+ *
+ * Comprehensive analytics engine with Cramér's V, Association Rules, and Clustering
+ * Outputs to single sheet: Gen_Analytics
+ */
+
+/**
+ * Generate comprehensive Gen_Analytics report
+ *
+ * SECTIONS:
+ * 1. Header (metadata)
+ * 2. Cramér's V Matrix (feature correlations)
+ * 3. Association Rules (top 10 patterns)
+ * 4. K-Means Clustering (3 fixed clusters)
+ * 5. Narrative Summary (auto-generated insights)
+ * 6. Run Log (append-only history)
+ */
+function generateGenAnalytics() {
+  Logger.log('=== GENERATING GEN_ANALYTICS ===');
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const frcSheet = ss.getSheetByName(CONFIG.SHEETS.FRC);
+
+  if (!frcSheet) {
+    SpreadsheetApp.getUi().alert('Error: FRC sheet not found');
+    return false;
+  }
+
+  const startTime = new Date();
+
+  // Get all data
+  const data = frcSheet.getDataRange().getValues();
+  const guests = data.slice(1).filter(row => row && row.length > 0 && row[CONFIG.COL.TIMESTAMP]);
+  const totalGuests = guests.length;
+
+  Logger.log(`Processing ${totalGuests} guests`);
+
+  if (totalGuests === 0) {
+    SpreadsheetApp.getUi().alert('Error: No guests found');
+    return false;
+  }
+
+  // Define features for analysis (shortened names)
+  const features = {
+    'Age': CONFIG.COL.AGE,
+    'Education': CONFIG.COL.EDU,
+    'Industry': CONFIG.COL.INDUSTRY,
+    'Role': CONFIG.COL.ROLE,
+    'Interest 1': CONFIG.COL.INTEREST_1,
+    'Interest 2': CONFIG.COL.INTEREST_2,
+    'Interest 3': CONFIG.COL.INTEREST_3,
+    'Music': CONFIG.COL.MUSIC,
+    'Purchase': CONFIG.COL.RECENT_PURCHASE,
+    'At Worst': CONFIG.COL.AT_WORST,
+    'Social': CONFIG.COL.SOCIAL_STANCE,
+    'Zodiac': CONFIG.COL.ZODIAC
+  };
+
+  const featureNames = Object.keys(features);
+  const MAX_COLS = featureNames.length + 1;
+
+  // Helper to pad rows
+  const padRow = (row, width) => {
+    const padded = row.slice();
+    while (padded.length < width) padded.push('');
+    return padded;
+  };
+
+  // ========== SECTION 1: CRAMÉR'S V MATRIX ==========
+  Logger.log('Calculating Cramér\'s V matrix...');
+  Logger.log(`Guest array length: ${guests.length}`);
+  Logger.log(`First guest columns: ${guests[0] ? guests[0].length : 'N/A'}`);
+  Logger.log(`Features to analyze: ${featureNames.join(', ')}`);
+
+  const cramersMatrix = {};
+  const allPairs = [];
+  let errorCount = 0;
+
+  for (let i = 0; i < featureNames.length; i++) {
+    const feat1 = featureNames[i];
+    const col1 = features[feat1];
+    cramersMatrix[feat1] = cramersMatrix[feat1] || {};
+
+    for (let j = 0; j < featureNames.length; j++) {
+      const feat2 = featureNames[j];
+      const col2 = features[feat2];
+
+      if (i === j) {
+        cramersMatrix[feat1][feat2] = 1.0;
+      } else if (i < j) {
+        // Validate column indices exist and are in bounds
+        if (col1 === undefined || col2 === undefined) {
+          Logger.log(`SKIP: Invalid column for ${feat1}(${col1}) or ${feat2}(${col2})`);
+          cramersMatrix[feat1][feat2] = 0;
+          cramersMatrix[feat2] = cramersMatrix[feat2] || {};
+          cramersMatrix[feat2][feat1] = 0;
+          errorCount++;
+          continue;
+        }
+
+        // Check if columns are within bounds
+        if (col1 >= guests[0].length || col2 >= guests[0].length) {
+          Logger.log(`SKIP: Column out of bounds - ${feat1}(${col1}) or ${feat2}(${col2}), max: ${guests[0].length}`);
+          cramersMatrix[feat1][feat2] = 0;
+          cramersMatrix[feat2] = cramersMatrix[feat2] || {};
+          cramersMatrix[feat2][feat1] = 0;
+          errorCount++;
+          continue;
+        }
+
+        const v = calculateCramersV(guests, col1, col2);
+        cramersMatrix[feat1][feat2] = v;
+        cramersMatrix[feat2] = cramersMatrix[feat2] || {};
+        cramersMatrix[feat2][feat1] = v;
+
+        allPairs.push({ feat1, feat2, value: v });
+      }
+    }
+  }
+
+  if (errorCount > 0) {
+    Logger.log(`WARNING: ${errorCount} feature pairs skipped due to invalid columns`);
+  }
+
+  allPairs.sort((a, b) => b.value - a.value);
+  const topCorrelation = allPairs[0] || { feat1: 'N/A', feat2: 'N/A', value: 0 };
+
+  // ========== SECTION 2: ASSOCIATION RULES ==========
+  Logger.log('Generating association rules...');
+  let rules = [];
+  try {
+    rules = generateAssociationRules_(guests, features, 10);
+    Logger.log(`Generated ${rules.length} association rules`);
+  } catch (e) {
+    Logger.log(`ERROR in generateAssociationRules_: ${e.toString()}`);
+    rules = [];
+  }
+
+  // ========== SECTION 3: K-MEANS CLUSTERING ==========
+  Logger.log('Performing K-Means clustering...');
+  let clusters = [];
+  try {
+    clusters = performKMeans_(guests, features, 3);
+    Logger.log(`Created ${clusters.length} clusters`);
+  } catch (e) {
+    Logger.log(`ERROR in performKMeans_: ${e.toString()}`);
+    // Create dummy clusters
+    clusters = [
+      { id: 0, count: 0, name: 'Error', dominantFeatures: [] },
+      { id: 1, count: 0, name: 'Error', dominantFeatures: [] },
+      { id: 2, count: 0, name: 'Error', dominantFeatures: [] }
+    ];
+  }
+
+  // ========== BUILD OUTPUT ==========
+  const output = [];
+
+  // HEADER
+  output.push(padRow(['=== GEN_ANALYTICS ==='], MAX_COLS));
+  output.push(padRow(['Run Date:', startTime.toLocaleString()], MAX_COLS));
+  output.push(padRow(['Guests Analyzed:', totalGuests], MAX_COLS));
+  output.push(padRow(['Features:', featureNames.length], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+
+  // CRAMÉR'S V MATRIX
+  output.push(padRow(['CRAMÉR\'S V CORRELATION MATRIX'], MAX_COLS));
+  output.push(padRow(['Legend: 0.0-0.1=None, 0.1-0.3=Weak, 0.3-0.5=Moderate, 0.5+=Strong'], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+
+  const matrixHeader = [''].concat(featureNames);
+  output.push(padRow(matrixHeader, MAX_COLS));
+
+  featureNames.forEach(feat1 => {
+    const row = [feat1];
+    featureNames.forEach(feat2 => {
+      const val = cramersMatrix[feat1] && cramersMatrix[feat1][feat2] !== undefined
+        ? cramersMatrix[feat1][feat2].toFixed(3)
+        : '0.000';
+      row.push(val);
+    });
+    output.push(padRow(row, MAX_COLS));
+  });
+  output.push(padRow([''], MAX_COLS));
+
+  // ASSOCIATION RULES
+  output.push(padRow(['ASSOCIATION RULES (Top 10 Patterns - Sorted by Lift)'], MAX_COLS));
+  output.push(padRow(['Note: Lift > 1.0 means better than random. Filtered for Lift ≥ 1.3'], MAX_COLS));
+
+  if (rules.length > 0) {
+    output.push(padRow(['Rule', 'Lift', 'Confidence', 'Support', 'Count'], MAX_COLS));
+    rules.forEach(rule => {
+      output.push(padRow([
+        rule.rule,
+        rule.lift.toFixed(2) + 'x',
+        (rule.confidence * 100).toFixed(1) + '%',
+        (rule.support * 100).toFixed(1) + '%',
+        rule.count
+      ], MAX_COLS));
+    });
+  } else {
+    output.push(padRow(['No significant patterns found (all rules had lift < 1.3)'], MAX_COLS));
+    output.push(padRow(['This means no surprising correlations - most patterns are just baseline frequencies'], MAX_COLS));
+  }
+  output.push(padRow([''], MAX_COLS));
+
+  // CLUSTER ANALYSIS
+  output.push(padRow(['K-MEANS CLUSTERING (3 Clusters)'], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+
+  clusters.forEach((cluster, idx) => {
+    output.push(padRow([`Cluster ${idx + 1}: "${cluster.name}" (${cluster.count} guests)`], MAX_COLS));
+    output.push(padRow(['Dominant Features:'], MAX_COLS));
+    cluster.dominantFeatures.forEach(feat => {
+      output.push(padRow([`  - ${feat.feature}: ${feat.value} (${feat.percentage}%)`], MAX_COLS));
+    });
+    output.push(padRow([''], MAX_COLS));
+  });
+
+  // NARRATIVE SUMMARY
+  const narrative = generateNarrative_(topCorrelation, allPairs, clusters, totalGuests);
+  output.push(padRow(['NARRATIVE SUMMARY'], MAX_COLS));
+  output.push(padRow([''], MAX_COLS));
+  narrative.forEach(line => {
+    output.push(padRow([line], MAX_COLS));
+  });
+  output.push(padRow([''], MAX_COLS));
+
+  // ========== WRITE TO SHEET ==========
+  Logger.log('Creating/updating Gen_Analytics sheet...');
+  Logger.log(`Output rows: ${output.length}, Max cols: ${MAX_COLS}`);
+
+  let analyticsSheet = ss.getSheetByName('Gen_Analytics');
+  if (!analyticsSheet) {
+    Logger.log('Creating new Gen_Analytics sheet');
+    analyticsSheet = ss.insertSheet('Gen_Analytics');
+  } else {
+    Logger.log('Found existing Gen_Analytics sheet');
+  }
+
+  // Get existing content for append log
+  try {
+    const existingData = analyticsSheet.getDataRange().getValues();
+    const hasExistingRuns = existingData.length > 1 && existingData[0][0] !== '';
+
+    if (hasExistingRuns) {
+      Logger.log('Appending previous run history');
+      output.push(padRow(['--- PREVIOUS RUNS ---'], MAX_COLS));
+      existingData.forEach(row => {
+        output.push(padRow(row.slice(0, MAX_COLS), MAX_COLS));
+      });
+    }
+  } catch (e) {
+    Logger.log(`Warning: Could not append previous runs: ${e.toString()}`);
+  }
+
+  // Clear and write
+  Logger.log('Clearing sheet and writing data...');
+  analyticsSheet.clear();
+
+  if (output.length > 0) {
+    try {
+      analyticsSheet.getRange(1, 1, output.length, MAX_COLS).setValues(output);
+      Logger.log(`Successfully wrote ${output.length} rows`);
+    } catch (e) {
+      Logger.log(`ERROR writing to sheet: ${e.toString()}`);
+      throw e; // Re-throw to show user
+    }
+  } else {
+    Logger.log('WARNING: No output to write!');
+  }
+
+  // Format
+  Logger.log('Applying formatting...');
+  try {
+    analyticsSheet.getRange(1, 1, 1, MAX_COLS)
+      .setBackground('#0b5394')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold')
+      .setFontSize(14);
+
+    // Highlight section headers
+    const sectionHeaderRows = [];
+    for (let i = 0; i < output.length; i++) {
+      const cell = output[i][0];
+      if (typeof cell === 'string' && (
+        cell.includes('CRAMÉR') ||
+        cell.includes('ASSOCIATION') ||
+        cell.includes('CLUSTERING') ||
+        cell.includes('NARRATIVE')
+      )) {
+        sectionHeaderRows.push(i + 1);
+      }
+    }
+
+    sectionHeaderRows.forEach(row => {
+      analyticsSheet.getRange(row, 1, 1, MAX_COLS)
+        .setBackground('#4285f4')
+        .setFontColor('#ffffff')
+        .setFontWeight('bold');
+    });
+
+    analyticsSheet.setFrozenRows(1);
+    analyticsSheet.autoResizeColumns(1, MAX_COLS);
+    Logger.log('Formatting complete');
+  } catch (e) {
+    Logger.log(`Warning: Formatting error (non-fatal): ${e.toString()}`);
+  }
+
+  const elapsed = (new Date() - startTime) / 1000;
+  Logger.log(`Gen_Analytics completed in ${elapsed}s`);
+  Logger.log(`Sheet name: ${analyticsSheet.getName()}, Rows: ${analyticsSheet.getLastRow()}`);
+
+  SpreadsheetApp.getUi().alert(
+    'Gen_Analytics Complete',
+    `Analysis finished!\n\n` +
+    `Guests: ${totalGuests}\n` +
+    `Features: ${featureNames.length}\n` +
+    `Top Correlation: ${topCorrelation.feat1} ↔ ${topCorrelation.feat2} (${topCorrelation.value.toFixed(3)})\n` +
+    `Clusters: 3\n\n` +
+    `Time: ${elapsed.toFixed(1)}s`,
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+
+  return true;
+}
+
+/**
+ * Generate association rules from guest data
+ * Filter out trivial patterns using lift score
+ * @private
+ */
+function generateAssociationRules_(guests, features, topN) {
+  const rules = [];
+  const minSupport = 0.05; // 5%
+  const minConfidence = 0.5; // 50%
+  const minLift = 1.3; // Must be 30% better than random
+
+  // Generate simple IF-THEN rules
+  const featureNames = Object.keys(features);
+
+  // First, calculate baseline probabilities for all consequents
+  const baselineCounts = {};
+  featureNames.forEach(fname => {
+    baselineCounts[fname] = {};
+    const col = features[fname];
+    guests.forEach(guest => {
+      const val = String(guest[col] || 'N/A').trim();
+      baselineCounts[fname][val] = (baselineCounts[fname][val] || 0) + 1;
+    });
+  });
+
+  for (let i = 0; i < featureNames.length; i++) {
+    for (let j = 0; j < featureNames.length; j++) {
+      if (i === j) continue;
+
+      const feat1Name = featureNames[i];
+      const feat2Name = featureNames[j];
+      const col1 = features[feat1Name];
+      const col2 = features[feat2Name];
+
+      // Count value combinations
+      const combinations = {};
+      const feat1Counts = {};
+
+      guests.forEach(guest => {
+        const val1 = String(guest[col1] || 'N/A').trim();
+        const val2 = String(guest[col2] || 'N/A').trim();
+
+        const key = `${val1}|${val2}`;
+        combinations[key] = (combinations[key] || 0) + 1;
+        feat1Counts[val1] = (feat1Counts[val1] || 0) + 1;
+      });
+
+      // Generate rules with lift scores
+      Object.keys(combinations).forEach(key => {
+        const [val1, val2] = key.split('|');
+        const count = combinations[key];
+        const support = count / guests.length;
+        const confidence = count / feat1Counts[val1];
+
+        // Calculate baseline probability of consequent
+        const baselineProb = (baselineCounts[feat2Name][val2] || 0) / guests.length;
+        const lift = baselineProb > 0 ? confidence / baselineProb : 0;
+
+        // Only keep rules that are better than random AND meet thresholds
+        if (support >= minSupport && confidence >= minConfidence && lift >= minLift) {
+          rules.push({
+            rule: `IF ${feat1Name}="${val1}" THEN ${feat2Name}="${val2}"`,
+            confidence: confidence,
+            support: support,
+            lift: lift,
+            count: count
+          });
+        }
+      });
+    }
+  }
+
+  // Sort by lift score (most surprising first)
+  rules.sort((a, b) => b.lift - a.lift);
+  return rules.slice(0, topN);
+}
+
+/**
+ * Perform K-Means clustering (3 clusters)
+ * @private
+ */
+function performKMeans_(guests, features, k) {
+  // Simple k-means implementation
+  const featureNames = Object.keys(features);
+
+  // Encode categorical data numerically
+  const encodedGuests = guests.map(guest => {
+    const encoded = [];
+    featureNames.forEach(fname => {
+      const col = features[fname];
+      const val = String(guest[col] || 'N/A').trim();
+      // Simple hash encoding
+      encoded.push(hashString_(val) % 100);
+    });
+    return { original: guest, encoded: encoded };
+  });
+
+  // Random initialization of centroids
+  const centroids = [];
+  const usedIndices = new Set();
+  while (centroids.length < k) {
+    const idx = Math.floor(Math.random() * encodedGuests.length);
+    if (!usedIndices.has(idx)) {
+      centroids.push([...encodedGuests[idx].encoded]);
+      usedIndices.add(idx);
+    }
+  }
+
+  // Iterate 10 times
+  for (let iter = 0; iter < 10; iter++) {
+    // Assign to clusters
+    const assignments = encodedGuests.map(g => {
+      let minDist = Infinity;
+      let cluster = 0;
+
+      centroids.forEach((centroid, idx) => {
+        const dist = euclideanDist_(g.encoded, centroid);
+        if (dist < minDist) {
+          minDist = dist;
+          cluster = idx;
+        }
+      });
+
+      return cluster;
+    });
+
+    // Update centroids
+    for (let c = 0; c < k; c++) {
+      const clusterPoints = encodedGuests
+        .map((g, idx) => assignments[idx] === c ? g.encoded : null)
+        .filter(x => x !== null);
+
+      if (clusterPoints.length > 0) {
+        centroids[c] = clusterPoints[0].map((_, dim) => {
+          const sum = clusterPoints.reduce((s, p) => s + p[dim], 0);
+          return sum / clusterPoints.length;
+        });
+      }
+    }
+  }
+
+  // Final assignment
+  const clusterAssignments = encodedGuests.map(g => {
+    let minDist = Infinity;
+    let cluster = 0;
+
+    centroids.forEach((centroid, idx) => {
+      const dist = euclideanDist_(g.encoded, centroid);
+      if (dist < minDist) {
+        minDist = dist;
+        cluster = idx;
+      }
+    });
+
+    return cluster;
+  });
+
+  // Analyze clusters
+  const clusterData = [];
+  for (let c = 0; c < k; c++) {
+    const clusterGuests = encodedGuests
+      .map((g, idx) => clusterAssignments[idx] === c ? g.original : null)
+      .filter(x => x !== null);
+
+    // Find dominant features
+    const featureCounts = {};
+    featureNames.forEach(fname => {
+      featureCounts[fname] = {};
+      const col = features[fname];
+
+      clusterGuests.forEach(guest => {
+        const val = String(guest[col] || 'N/A').trim();
+        featureCounts[fname][val] = (featureCounts[fname][val] || 0) + 1;
+      });
+    });
+
+    // Get top feature value for each feature
+    const dominantFeatures = [];
+    featureNames.forEach(fname => {
+      const counts = featureCounts[fname];
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      if (sorted.length > 0) {
+        dominantFeatures.push({
+          feature: fname,
+          value: sorted[0][0],
+          count: sorted[0][1],
+          percentage: ((sorted[0][1] / clusterGuests.length) * 100).toFixed(0)
+        });
+      }
+    });
+
+    // Sort by percentage (most dominant first)
+    dominantFeatures.sort((a, b) => b.percentage - a.percentage);
+
+    // Auto-name cluster based on top 3 features
+    const top3 = dominantFeatures.slice(0, 3);
+    const clusterName = nameCluster_(top3);
+
+    clusterData.push({
+      id: c,
+      count: clusterGuests.length,
+      name: clusterName,
+      dominantFeatures: dominantFeatures.slice(0, 5) // Top 5
+    });
+  }
+
+  return clusterData;
+}
+
+/**
+ * Generate cluster name from dominant features
+ * @private
+ */
+function nameCluster_(topFeatures) {
+  const parts = [];
+
+  topFeatures.forEach(feat => {
+    if (feat.feature === 'Age') parts.push(feat.value.replace('-', '-'));
+    else if (feat.feature === 'Music') parts.push(feat.value);
+    else if (feat.feature === 'Education') parts.push(feat.value);
+    else if (feat.feature.includes('Interest')) parts.push(feat.value + ' Fans');
+    else if (feat.feature === 'Industry') parts.push(feat.value);
+    else if (feat.feature === 'Social') parts.push(feat.value === '5' ? 'Extroverts' : 'Introverts');
+  });
+
+  return parts.slice(0, 3).join(' ');
+}
+
+/**
+ * Generate narrative summary
+ * @private
+ */
+function generateNarrative_(topCorr, allPairs, clusters, totalGuests) {
+  const lines = [];
+
+  lines.push('MATRIX INTERPRETATION:');
+  lines.push('Cramér\'s V ranges from 0 (no correlation) to 1 (perfect correlation).');
+  lines.push('  • 0.0-0.1 = None');
+  lines.push('  • 0.1-0.3 = Weak');
+  lines.push('  • 0.3-0.5 = Moderate (useful for matching)');
+  lines.push('  • 0.5+ = Strong (high priority for matching)');
+  lines.push('');
+
+  lines.push('KEY FINDINGS:');
+  if (topCorr && topCorr.value > 0) {
+    lines.push(`• Strongest Correlation: ${topCorr.feat1} ↔ ${topCorr.feat2} (V=${topCorr.value.toFixed(3)})`);
+  }
+
+  // Find correlations worth using for matching
+  const strong = allPairs.filter(p => p.value >= 0.3).slice(0, 5);
+  if (strong.length > 0) {
+    lines.push('• Strong Correlations (use these for matching weights):');
+    strong.forEach(p => {
+      lines.push(`  - ${p.feat1} ↔ ${p.feat2} (${p.value.toFixed(3)})`);
+    });
+  }
+
+  // Find moderate correlations
+  const moderate = allPairs.filter(p => p.value >= 0.2 && p.value < 0.3).slice(0, 3);
+  if (moderate.length > 0) {
+    lines.push('• Moderate Correlations:');
+    moderate.forEach(p => {
+      lines.push(`  - ${p.feat1} ↔ ${p.feat2} (${p.value.toFixed(3)})`);
+    });
+  }
+
+  lines.push('');
+  lines.push('ASSOCIATION RULES EXPLAINED:');
+  lines.push('Lift Score = How much more likely than random');
+  lines.push('  • Lift 1.3x = 30% more likely than random');
+  lines.push('  • Lift 2.0x = 2x more likely than random');
+  lines.push('Only rules with Lift ≥ 1.3 are shown (filters out trivial patterns).');
+  lines.push('');
+
+  lines.push('CLUSTER INSIGHTS:');
+  clusters.forEach((cluster, idx) => {
+    const pct = ((cluster.count/totalGuests)*100).toFixed(0);
+    lines.push(`• Cluster ${idx+1}: ${cluster.name} - ${cluster.count} guests (${pct}%)`);
+  });
+
+  lines.push('');
+  lines.push('ACTIONABLE INSIGHTS FOR MATCHMAKING:');
+  lines.push('1. Weight features by Cramér\'s V strength (higher V = higher weight)');
+  lines.push('2. Use association rules to identify "green flags" (high lift patterns)');
+  lines.push('3. Consider cluster membership as compatibility factor');
+  lines.push('4. Strong correlations (>0.3) should get 2-3x weight vs weak (<0.2)');
+
+  return lines;
+}
+
+/**
+ * Helper: Euclidean distance
+ * @private
+ */
+function euclideanDist_(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    sum += Math.pow(a[i] - b[i], 2);
+  }
+  return Math.sqrt(sum);
+}
+
+/**
+ * Helper: Hash string to number
+ * @private
+ */
+function hashString_(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * List all unique interest values from FRC guest data
+ *
+ * Shows complete catalog of interests with frequency counts
+ * Reads ACTUAL guest selections from Interest_1, Interest_2, Interest_3 columns
+ */
+function listAllInterests() {
+  Logger.log('=== LISTING ALL INTERESTS FROM FRC ===');
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const frcSheet = ss.getSheetByName(CONFIG.SHEETS.FRC);
+
+  if (!frcSheet) {
+    SpreadsheetApp.getUi().alert('Error: FRC sheet not found');
+    return;
+  }
+
+  const data = frcSheet.getDataRange().getValues();
+  const guests = data.slice(1).filter(row => row && row.length > 0 && row[CONFIG.COL.TIMESTAMP]);
+
+  Logger.log(`Processing ${guests.length} guests`);
+
+  // Count interest frequencies across all three interest columns
+  const interestCounts = {};
+  const interest1Counts = {};
+  const interest2Counts = {};
+  const interest3Counts = {};
+
+  guests.forEach(guest => {
+    // Interest 1
+    const int1 = String(guest[CONFIG.COL.INTEREST_1] || '').trim();
+    if (int1 && int1 !== 'N/A') {
+      interestCounts[int1] = (interestCounts[int1] || 0) + 1;
+      interest1Counts[int1] = (interest1Counts[int1] || 0) + 1;
+    }
+
+    // Interest 2
+    const int2 = String(guest[CONFIG.COL.INTEREST_2] || '').trim();
+    if (int2 && int2 !== 'N/A') {
+      interestCounts[int2] = (interestCounts[int2] || 0) + 1;
+      interest2Counts[int2] = (interest2Counts[int2] || 0) + 1;
+    }
+
+    // Interest 3
+    const int3 = String(guest[CONFIG.COL.INTEREST_3] || '').trim();
+    if (int3 && int3 !== 'N/A') {
+      interestCounts[int3] = (interestCounts[int3] || 0) + 1;
+      interest3Counts[int3] = (interest3Counts[int3] || 0) + 1;
+    }
+  });
+
+  // Create sorted arrays
+  const allInterests = Object.entries(interestCounts)
+    .map(([interest, count]) => ({ interest, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const totalSelections = allInterests.reduce((sum, item) => sum + item.count, 0);
+  const uniqueCount = allInterests.length;
+
+  // Build output
+  const output = [];
+  output.push(['=== ALL INTERESTS CATALOG ===']);
+  output.push(['Source: FRC Sheet - Interest_1, Interest_2, Interest_3 (Columns P, Q, R)']);
+  output.push(['']);
+
+  // Summary stats
+  output.push(['SUMMARY STATISTICS:']);
+  output.push(['Total Guests Analyzed:', guests.length]);
+  output.push(['Total Unique Interests:', uniqueCount]);
+  output.push(['Total Interest Selections:', totalSelections]);
+  output.push(['Average Interests per Guest:', (totalSelections / guests.length).toFixed(2)]);
+  output.push(['']);
+
+  // All interests with frequency and percentage
+  output.push(['ALL INTERESTS (Sorted by Total Frequency):']);
+  output.push(['Rank', 'Interest', 'Total Count', '% of Guests', 'As Interest 1', 'As Interest 2', 'As Interest 3', 'Weight Tier']);
+
+  allInterests.forEach((item, idx) => {
+    const percentage = ((item.count / guests.length) * 100).toFixed(1) + '%';
+    const count1 = interest1Counts[item.interest] || 0;
+    const count2 = interest2Counts[item.interest] || 0;
+    const count3 = interest3Counts[item.interest] || 0;
+
+    // Determine weight tier based on frequency
+    let weightTier;
+    if (item.count >= 40) weightTier = 'Low (Too Common)';
+    else if (item.count >= 20) weightTier = 'Medium';
+    else if (item.count >= 5) weightTier = 'High';
+    else weightTier = 'Ultra-High (Rare)';
+
+    output.push([
+      idx + 1,
+      item.interest,
+      item.count,
+      percentage,
+      count1,
+      count2,
+      count3,
+      weightTier
+    ]);
+  });
+  output.push(['']);
+
+  // Tier breakdown with recommendations
+  output.push(['RECOMMENDED MATCHING WEIGHTS:']);
+  output.push(['']);
+
+  const ultraRare = allInterests.filter(i => i.count <= 4);
+  output.push(['Ultra-High Weight (1-4 guests) - 10x:']);
+  output.push(['Perfect match signals - extremely distinctive']);
+  ultraRare.forEach(i => {
+    output.push(['  • ' + i.interest, i.count + ' guests']);
+  });
+  output.push(['']);
+
+  const high = allInterests.filter(i => i.count >= 5 && i.count < 20);
+  output.push(['High Weight (5-19 guests) - 3-5x:']);
+  output.push(['Strong signals - distinctive interests']);
+  high.forEach(i => {
+    output.push(['  • ' + i.interest, i.count + ' guests']);
+  });
+  output.push(['']);
+
+  const medium = allInterests.filter(i => i.count >= 20 && i.count < 40);
+  output.push(['Medium Weight (20-39 guests) - 1.5-2x:']);
+  output.push(['Moderate signals']);
+  medium.forEach(i => {
+    output.push(['  • ' + i.interest, i.count + ' guests']);
+  });
+  output.push(['']);
+
+  const low = allInterests.filter(i => i.count >= 40);
+  output.push(['Low Weight (40+ guests) - 0.5-1x:']);
+  output.push(['Weak signals - too common']);
+  low.forEach(i => {
+    output.push(['  • ' + i.interest, i.count + ' guests']);
+  });
+  output.push(['']);
+
+  // Position analysis
+  output.push(['POSITION PREFERENCES:']);
+  output.push(['Which slot do guests put each interest in?']);
+  output.push(['']);
+  output.push(['Interest', 'Slot 1', 'Slot 2', 'Slot 3', 'Most Common Position']);
+  allInterests.forEach(item => {
+    const count1 = interest1Counts[item.interest] || 0;
+    const count2 = interest2Counts[item.interest] || 0;
+    const count3 = interest3Counts[item.interest] || 0;
+
+    let mostCommon = 'Slot 1';
+    if (count2 > count1 && count2 > count3) mostCommon = 'Slot 2';
+    else if (count3 > count1 && count3 > count2) mostCommon = 'Slot 3';
+
+    output.push([item.interest, count1, count2, count3, mostCommon]);
+  });
+  output.push(['']);
+
+  // Find max columns needed
+  const maxCols = Math.max(...output.map(row => row.length));
+
+  // Pad all rows
+  const paddedOutput = output.map(row => {
+    const padded = row.slice();
+    while (padded.length < maxCols) padded.push('');
+    return padded;
+  });
+
+  // Create or update Interest_Catalog sheet
+  let catalogSheet = ss.getSheetByName('Interest_Catalog');
+  if (!catalogSheet) {
+    catalogSheet = ss.insertSheet('Interest_Catalog');
+  } else {
+    catalogSheet.clear();
+  }
+
+  // Write to sheet
+  if (paddedOutput.length > 0) {
+    catalogSheet.getRange(1, 1, paddedOutput.length, maxCols).setValues(paddedOutput);
+  }
+
+  // Format
+  catalogSheet.getRange(1, 1, 1, maxCols)
+    .setBackground('#0b5394')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(14);
+
+  // Highlight section headers
+  for (let i = 0; i < paddedOutput.length; i++) {
+    const cell = paddedOutput[i][0];
+    if (typeof cell === 'string' && (
+      cell.includes('SUMMARY') ||
+      cell.includes('ALL INTERESTS') ||
+      cell.includes('RECOMMENDED') ||
+      cell.includes('POSITION')
+    )) {
+      catalogSheet.getRange(i + 1, 1, 1, maxCols)
+        .setBackground('#4285f4')
+        .setFontColor('#ffffff')
+        .setFontWeight('bold');
+    }
+  }
+
+  catalogSheet.setFrozenRows(1);
+  catalogSheet.autoResizeColumns(1, maxCols);
+
+  Logger.log('Interest catalog created!');
+  Logger.log(`Total unique interests: ${uniqueCount}`);
+  Logger.log(`Total selections: ${totalSelections}`);
+
+  SpreadsheetApp.getUi().alert(
+    'Interest Catalog Created',
+    `Analyzed ${guests.length} guests from FRC!\n\n` +
+    `Found ${uniqueCount} unique interests\n` +
+    `Total selections: ${totalSelections}\n` +
+    `Average: ${(totalSelections / guests.length).toFixed(2)} interests per guest\n\n` +
+    `WEIGHT TIERS:\n` +
+    `• Ultra-High (1-4): ${ultraRare.length} interests\n` +
+    `• High (5-19): ${high.length} interests\n` +
+    `• Medium (20-39): ${medium.length} interests\n` +
+    `• Low (40+): ${low.length} interests\n\n` +
+    `Check "Interest_Catalog" sheet for:\n` +
+    `• Complete frequency breakdown\n` +
+    `• Position preferences (which slot)\n` +
+    `• Recommended matching weights`,
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+/**
+ * ANALYTICS ALIGNMENT TEST SUITE
+ *
+ * This script tests that all analytics modules are properly aligned and
+ * produce consistent results across different configurations.
+ *
+ * Tests:
+ * 1. Sheet existence and structure
+ * 2. CONFIG.COL alignment with FRC sheet
+ * 3. SPEC headers alignment with source sheet
+ * 4. Pan_Master column consistency
+ * 5. Cramér's V calculation consistency
+ * 6. Guest similarity calculation
+ * 7. Gen_Analytics integration
+ *
+ * Run from Apps Script: TestAnalyticsAlignment > runAllTests()
+ */
+
+// Test Results Collector
+const TestResults = {
+  tests: [],
+  passed: 0,
+  failed: 0,
+  warnings: 0,
+
+  addTest: function(name, passed, message, warning = false) {
+    this.tests.push({
+      name: name,
+      passed: passed,
+      message: message || '',
+      warning: warning
+    });
+
+    if (warning) {
+      this.warnings++;
+    } else if (passed) {
+      this.passed++;
+    } else {
+      this.failed++;
+    }
+  },
+
+  getSummary: function() {
+    return {
+      total: this.tests.length,
+      passed: this.passed,
+      failed: this.failed,
+      warnings: this.warnings,
+      tests: this.tests
+    };
+  },
+
+  generateReport: function() {
+    const lines = [];
+    lines.push('=== ANALYTICS ALIGNMENT TEST REPORT ===');
+    lines.push('Generated: ' + new Date().toLocaleString());
+    lines.push('');
+    lines.push(`Total Tests: ${this.tests.length}`);
+    lines.push(`✓ Passed: ${this.passed}`);
+    lines.push(`✗ Failed: ${this.failed}`);
+    lines.push(`⚠ Warnings: ${this.warnings}`);
+    lines.push('');
+    lines.push('=== TEST DETAILS ===');
+    lines.push('');
+
+    this.tests.forEach((test, i) => {
+      const icon = test.warning ? '⚠' : (test.passed ? '✓' : '✗');
+      lines.push(`${icon} Test ${i+1}: ${test.name}`);
+      if (test.message) {
+        lines.push(`   ${test.message}`);
+      }
+      lines.push('');
+    });
+
+    lines.push('=== END OF REPORT ===');
+    return lines.join('\n');
+  }
+};
+
+/**
+ * Main test runner - executes all tests
+ */
+function runAllTests() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  TestResults.tests = [];
+  TestResults.passed = 0;
+  TestResults.failed = 0;
+  TestResults.warnings = 0;
+
+  Logger.log('Starting Analytics Alignment Tests...');
+
+  // Test 1: Basic Sheet Existence
+  test1_SheetExistence(ss);
+
+  // Test 2: CONFIG Object Availability
+  test2_ConfigAvailability();
+
+  // Test 3: FRC Column Structure
+  test3_FRCColumnStructure(ss);
+
+  // Test 4: Pan_Master Existence and Structure
+  test4_PanMasterStructure(ss);
+
+  // Test 5: Cramér's V Calculation
+  test5_CramersVCalculation(ss);
+
+  // Test 6: Feature Consistency
+  test6_FeatureConsistency();
+
+  // Test 7: MATCH_CONFIG Alignment
+  test7_MatchConfigAlignment();
+
+  // Generate report
+  const report = TestResults.generateReport();
+  Logger.log(report);
+
+  // Write to sheet
+  writeReportToSheet(ss, report);
+
+  // Show summary
+  const summary = TestResults.getSummary();
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(
+    'Test Complete',
+    `Results: ${summary.passed} passed, ${summary.failed} failed, ${summary.warnings} warnings\n\n` +
+    'See "Test_Report" sheet for details.',
+    ui.ButtonSet.OK
+  );
+
+  return summary;
+}
+
+/**
+ * Test 1: Check that required sheets exist
+ */
+function test1_SheetExistence(ss) {
+  const sheets = ss.getSheets().map(s => s.getName());
+
+  // Required sheets
+  const hasFRC = sheets.includes('FRC') || sheets.includes('Form Responses (Clean)');
+  TestResults.addTest(
+    'FRC Sheet Exists',
+    hasFRC,
+    hasFRC ? 'Found FRC or Form Responses (Clean)' : 'Missing FRC sheet'
+  );
+
+  const hasFormResponses = sheets.includes('Form Responses 1');
+  TestResults.addTest(
+    'Form Responses 1 Exists',
+    hasFormResponses,
+    hasFormResponses ? 'Found Form Responses 1' : 'Missing Form Responses 1',
+    !hasFormResponses  // Warning if missing
+  );
+
+  // Analytics output sheets (warnings only if missing)
+  const hasPanMaster = sheets.includes('Pan_Master');
+  TestResults.addTest(
+    'Pan_Master Exists',
+    hasPanMaster,
+    hasPanMaster ? 'Found Pan_Master' : 'Run buildPanSheets() to create',
+    !hasPanMaster
+  );
+
+  const hasPanDict = sheets.includes('Pan_Dict');
+  TestResults.addTest(
+    'Pan_Dict Exists',
+    hasPanDict,
+    hasPanDict ? 'Found Pan_Dict' : 'Run buildPanSheets() to create',
+    !hasPanDict
+  );
+}
+
+/**
+ * Test 2: Check CONFIG object is available
+ */
+function test2_ConfigAvailability() {
+  const hasConfig = typeof CONFIG !== 'undefined';
+  TestResults.addTest(
+    'CONFIG Object Available',
+    hasConfig,
+    hasConfig ? 'CONFIG object found' : 'CONFIG not defined - check Code.gs'
+  );
+
+  if (hasConfig) {
+    const hasCOL = CONFIG.COL !== undefined;
+    TestResults.addTest(
+      'CONFIG.COL Defined',
+      hasCOL,
+      hasCOL ? `CONFIG.COL has ${Object.keys(CONFIG.COL).length} entries` : 'CONFIG.COL missing'
+    );
+
+    const hasSHEETS = CONFIG.SHEETS !== undefined;
+    TestResults.addTest(
+      'CONFIG.SHEETS Defined',
+      hasSHEETS,
+      hasSHEETS ? `CONFIG.SHEETS.FRC = "${CONFIG.SHEETS.FRC}"` : 'CONFIG.SHEETS missing'
+    );
+  }
+}
+
+/**
+ * Test 3: Verify FRC column structure matches CONFIG.COL
+ */
+function test3_FRCColumnStructure(ss) {
+  if (typeof CONFIG === 'undefined') {
+    TestResults.addTest(
+      'FRC Column Structure',
+      false,
+      'Skipped - CONFIG not available'
+    );
+    return;
+  }
+
+  const frcSheet = ss.getSheetByName(CONFIG.SHEETS.FRC) || ss.getSheetByName('Form Responses (Clean)');
+  if (!frcSheet) {
+    TestResults.addTest(
+      'FRC Column Structure',
+      false,
+      'Skipped - FRC sheet not found'
+    );
+    return;
+  }
+
+  const headers = frcSheet.getRange(1, 1, 1, Math.min(30, frcSheet.getLastColumn())).getValues()[0];
+
+  // Test critical columns
+  const criticalTests = [
+    { name: 'TIMESTAMP', col: CONFIG.COL.TIMESTAMP, expected: 'Timestamp' },
+    { name: 'AGE', col: CONFIG.COL.AGE, expected: 'Age Range' },
+    { name: 'EDU', col: CONFIG.COL.EDU, expected: 'Education Level' },
+    { name: 'ZIP', col: CONFIG.COL.ZIP, expected: 'Current 5 Digit Zip Code' },
+    { name: 'SCREEN_NAME', col: CONFIG.COL.SCREEN_NAME, expected: 'Screen Name' },
+    { name: 'UID', col: CONFIG.COL.UID, expected: 'UID' }
+  ];
+
+  let matches = 0;
+  criticalTests.forEach(test => {
+    const actual = String(headers[test.col] || '').trim();
+    const expected = String(test.expected).trim();
+    const match = actual === expected || actual.includes(expected) || expected.includes(actual);
+
+    if (match) matches++;
+
+    TestResults.addTest(
+      `CONFIG.COL.${test.name} Matches`,
+      match,
+      match ? `Column ${test.col}: "${actual}"` : `Expected "${expected}", got "${actual}"`
+    );
+  });
+
+  // Overall structure test
+  TestResults.addTest(
+    'FRC Structure Overall',
+    matches === criticalTests.length,
+    `${matches}/${criticalTests.length} critical columns match`
+  );
+}
+
+/**
+ * Test 4: Verify Pan_Master structure
+ */
+function test4_PanMasterStructure(ss) {
+  const panMaster = ss.getSheetByName('Pan_Master');
+  if (!panMaster) {
+    TestResults.addTest(
+      'Pan_Master Structure',
+      false,
+      'Skipped - Pan_Master not found (run buildPanSheets first)',
+      true
+    );
+    return;
+  }
+
+  const headers = panMaster.getRange(1, 1, 1, Math.min(20, panMaster.getLastColumn())).getValues()[0];
+
+  // Check expected columns
+  const hasScreenName = headers[0] === 'Screen Name';
+  TestResults.addTest(
+    'Pan_Master Column A',
+    hasScreenName,
+    hasScreenName ? 'Screen Name in column A' : `Column A is "${headers[0]}"`
+  );
+
+  const hasUID = headers[1] === 'UID';
+  TestResults.addTest(
+    'Pan_Master Column B',
+    hasUID,
+    hasUID ? 'UID in column B' : `Column B is "${headers[1]}"`
+  );
+
+  // Check for code_ columns
+  const codeColumns = headers.filter(h => String(h).startsWith('code_'));
+  TestResults.addTest(
+    'Pan_Master code_* Columns',
+    codeColumns.length > 0,
+    `Found ${codeColumns.length} code_* columns`
+  );
+
+  // Check for oh_ columns (interests)
+  const ohColumns = headers.filter(h => String(h).startsWith('oh_interests_'));
+  TestResults.addTest(
+    'Pan_Master oh_interests_* Columns',
+    ohColumns.length > 0,
+    `Found ${ohColumns.length} interest one-hot columns`
+  );
+
+  // Check for specific numeric columns expected by buildGuestSimilarity
+  const allHeaders = panMaster.getRange(1, 1, 1, panMaster.getLastColumn()).getValues()[0];
+  const hasKnowScore = allHeaders.some(h => String(h).includes('know_score'));
+  const hasSocialStance = allHeaders.some(h => String(h).includes('social_stance'));
+
+  TestResults.addTest(
+    'Pan_Master Numeric Fields',
+    hasKnowScore && hasSocialStance,
+    hasKnowScore && hasSocialStance
+      ? 'know_score and social_stance columns found'
+      : `Missing: ${!hasKnowScore ? 'know_score ' : ''}${!hasSocialStance ? 'social_stance' : ''}`
+  );
+}
+
+/**
+ * Test 5: Test Cramér's V calculation works
+ */
+function test5_CramersVCalculation(ss) {
+  if (typeof CONFIG === 'undefined') {
+    TestResults.addTest(
+      'Cramér\'s V Calculation',
+      false,
+      'Skipped - CONFIG not available'
+    );
+    return;
+  }
+
+  const frcSheet = ss.getSheetByName(CONFIG.SHEETS.FRC);
+  if (!frcSheet) {
+    TestResults.addTest(
+      'Cramér\'s V Calculation',
+      false,
+      'Skipped - FRC sheet not found'
+    );
+    return;
+  }
+
+  try {
+    const data = frcSheet.getDataRange().getValues();
+    const guests = data.slice(1).filter(row => row && row.length > 0 && row[CONFIG.COL.TIMESTAMP]);
+
+    if (guests.length === 0) {
+      TestResults.addTest(
+        'Cramér\'s V Calculation',
+        false,
+        'No guest data found in FRC sheet',
+        true
+      );
+      return;
+    }
+
+    // Test calculation with Age vs Education
+    const cramersV = calculateCramersV(guests, CONFIG.COL.AGE, CONFIG.COL.EDU);
+    const isValid = typeof cramersV === 'number' && isFinite(cramersV) && cramersV >= 0 && cramersV <= 1;
+
+    TestResults.addTest(
+      'Cramér\'s V Calculation',
+      isValid,
+      isValid
+        ? `Calculated V(Age, Education) = ${cramersV.toFixed(4)}`
+        : `Invalid result: ${cramersV}`
+    );
+
+  } catch (error) {
+    TestResults.addTest(
+      'Cramér\'s V Calculation',
+      false,
+      `Error: ${error.toString()}`
+    );
+  }
+}
+
+/**
+ * Test 6: Verify feature sets are consistent
+ */
+function test6_FeatureConsistency() {
+  if (typeof CONFIG === 'undefined') {
+    TestResults.addTest(
+      'Feature Consistency',
+      false,
+      'Skipped - CONFIG not available'
+    );
+    return;
+  }
+
+  // Features used in Gen_Analytics (Tools.gs)
+  const genAnalyticsFeatures = [
+    'AGE', 'EDU', 'INDUSTRY', 'ROLE',
+    'INTEREST_1', 'INTEREST_2', 'INTEREST_3',
+    'MUSIC', 'RECENT_PURCHASE', 'AT_WORST',
+    'SOCIAL_STANCE', 'ZODIAC'
+  ];
+
+  // Check all features exist in CONFIG.COL
+  const missingFeatures = genAnalyticsFeatures.filter(f => CONFIG.COL[f] === undefined);
+
+  TestResults.addTest(
+    'Gen_Analytics Features in CONFIG',
+    missingFeatures.length === 0,
+    missingFeatures.length === 0
+      ? 'All 12 features defined in CONFIG.COL'
+      : `Missing features: ${missingFeatures.join(', ')}`
+  );
+
+  // Check MATCH_CONFIG features
+  if (typeof MATCH_CONFIG !== 'undefined' && MATCH_CONFIG.FEATURE_WEIGHTS) {
+    const matchFeatures = Object.keys(MATCH_CONFIG.FEATURE_WEIGHTS);
+    TestResults.addTest(
+      'MATCH_CONFIG Features Defined',
+      matchFeatures.length > 0,
+      `MATCH_CONFIG has ${matchFeatures.length} feature weights`
+    );
+  } else {
+    TestResults.addTest(
+      'MATCH_CONFIG Features Defined',
+      false,
+      'MATCH_CONFIG not available or no FEATURE_WEIGHTS',
+      true
+    );
+  }
+}
+
+/**
+ * Test 7: Verify MATCH_CONFIG alignment with analytics
+ */
+function test7_MatchConfigAlignment() {
+  if (typeof MATCH_CONFIG === 'undefined') {
+    TestResults.addTest(
+      'MATCH_CONFIG Alignment',
+      false,
+      'Skipped - MATCH_CONFIG not defined',
+      true
+    );
+    return;
+  }
+
+  // Check thresholds are defined
+  const hasThresholds = MATCH_CONFIG.THRESHOLDS !== undefined;
+  TestResults.addTest(
+    'MATCH_CONFIG Thresholds',
+    hasThresholds,
+    hasThresholds
+      ? `Thresholds: ${Object.keys(MATCH_CONFIG.THRESHOLDS).length} levels`
+      : 'THRESHOLDS not defined'
+  );
+
+  // Check feature weights are defined
+  const hasWeights = MATCH_CONFIG.FEATURE_WEIGHTS !== undefined;
+  TestResults.addTest(
+    'MATCH_CONFIG Feature Weights',
+    hasWeights,
+    hasWeights
+      ? `Feature weights: ${Object.keys(MATCH_CONFIG.FEATURE_WEIGHTS).length} features`
+      : 'FEATURE_WEIGHTS not defined'
+  );
+
+  // Check interest weights
+  const hasInterestWeights = MATCH_CONFIG.INTEREST_WEIGHTS !== undefined;
+  TestResults.addTest(
+    'MATCH_CONFIG Interest Weights',
+    hasInterestWeights,
+    hasInterestWeights
+      ? `Interest weights: ${Object.keys(MATCH_CONFIG.INTEREST_WEIGHTS).length} interests`
+      : 'INTEREST_WEIGHTS not defined'
+  );
+}
+
+/**
+ * Write test report to sheet
+ */
+function writeReportToSheet(ss, report) {
+  let reportSheet = ss.getSheetByName('Test_Report');
+  if (!reportSheet) {
+    reportSheet = ss.insertSheet('Test_Report');
+  }
+  reportSheet.clear();
+
+  // Write report
+  const lines = report.split('\n');
+  const data = lines.map(line => [line]);
+  reportSheet.getRange(1, 1, data.length, 1).setValues(data);
+  reportSheet.setColumnWidth(1, 900);
+
+  // Format header
+  reportSheet.getRange('A1').setFontWeight('bold').setFontSize(14);
+
+  // Color code test results
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cell = reportSheet.getRange(i + 1, 1);
+
+    if (line.startsWith('✓')) {
+      cell.setBackground('#d4edda').setFontColor('#155724');
+    } else if (line.startsWith('✗')) {
+      cell.setBackground('#f8d7da').setFontColor('#721c24');
+    } else if (line.startsWith('⚠')) {
+      cell.setBackground('#fff3cd').setFontColor('#856404');
+    }
+  }
+}
+
+/**
+ * Quick test - just runs verification without detailed reporting
+ */
+function quickTest() {
+  const result = runAllTests();
+  Logger.log('Quick Test Summary:');
+  Logger.log(`Total: ${result.total}, Passed: ${result.passed}, Failed: ${result.failed}, Warnings: ${result.warnings}`);
+  return result;
+}
+
+/**
+ * SHEET STRUCTURE VERIFICATION
+ *
+ * This script verifies that:
+ * 1. CONFIG.COL indices match actual FRC sheet structure
+ * 2. SPEC headers match actual "Form Responses 1" structure
+ * 3. Both sheets exist and have consistent data
+ *
+ * Run this from Apps Script editor to verify alignment
+ */
+
+function verifySheetStructure() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const report = [];
+  report.push('=== SHEET STRUCTURE VERIFICATION REPORT ===');
+  report.push('Generated: ' + new Date().toLocaleString());
+  report.push('');
+
+  // List all sheets
+  const allSheets = ss.getSheets().map(s => s.getName());
+  report.push('AVAILABLE SHEETS:');
+  allSheets.forEach((name, i) => report.push(`  ${i+1}. ${name}`));
+  report.push('');
+
+  // Check FRC sheet
+  const frcSheet = ss.getSheetByName('FRC') || ss.getSheetByName('Form Responses (Clean)');
+  const formSheet = ss.getSheetByName('Form Responses 1');
+
+  if (!frcSheet && !formSheet) {
+    report.push('❌ ERROR: Neither FRC nor "Form Responses 1" sheet found!');
+    Logger.log(report.join('\n'));
+    ui.alert('Error', report.join('\n'), ui.ButtonSet.OK);
+    return;
+  }
+
+  // Verify FRC structure
+  if (frcSheet) {
+    report.push('=== FRC SHEET ANALYSIS ===');
+    report.push('Sheet Name: ' + frcSheet.getName());
+    report.push('Rows: ' + frcSheet.getLastRow());
+    report.push('Columns: ' + frcSheet.getLastColumn());
+    report.push('');
+
+    const frcHeaders = frcSheet.getRange(1, 1, 1, Math.min(35, frcSheet.getLastColumn())).getValues()[0];
+    report.push('FRC HEADERS (First 35 columns):');
+    frcHeaders.forEach((header, idx) => {
+      const colLetter = String.fromCharCode(65 + idx);
+      report.push(`  ${colLetter} (${idx}): ${header || '(empty)'}`);
+    });
+    report.push('');
+
+    // Verify CONFIG.COL matches
+    report.push('=== CONFIG.COL VERIFICATION ===');
+    const configChecks = [
+      { name: 'TIMESTAMP', col: 0, expected: 'Timestamp' },
+      { name: 'BIRTHDAY', col: 1, expected: 'Birthday (MM/DD)' },
+      { name: 'ZODIAC', col: 2, expected: 'Zodiac Sign' },
+      { name: 'AGE', col: 3, expected: 'Age Range' },
+      { name: 'EDU', col: 4, expected: 'Education Level' },
+      { name: 'ZIP', col: 5, expected: 'Current 5 Digit Zip Code' },
+      { name: 'ETHNICITY', col: 6, expected: 'Self Identified Ethnicity' },
+      { name: 'GENDER', col: 7, expected: 'Self-Identified Gender' },
+      { name: 'ORIENTATION', col: 8, expected: 'Self-Identified Sexual Orientation' },
+      { name: 'INDUSTRY', col: 9, expected: 'Employment Information (Industry)' },
+      { name: 'ROLE', col: 10, expected: 'Employment Information (Role)' },
+      { name: 'KNOW_HOSTS', col: 11, expected: 'Do you know the Host(s)?' },
+      { name: 'KNOWN_LONGEST', col: 12, expected: 'Which host have you known the longest?' },
+      { name: 'KNOW_SCORE', col: 13, expected: 'If yes, how well do you know them?' },
+      { name: 'INTERESTS_RAW', col: 14, expected: 'Your General Interests (Choose 3)' },
+      { name: 'INTEREST_1', col: 15, expected: 'Interest_1' },
+      { name: 'INTEREST_2', col: 16, expected: 'Interest_2' },
+      { name: 'INTEREST_3', col: 17, expected: 'Interest_3' },
+      { name: 'MUSIC', col: 18, expected: 'Music Preference' },
+      { name: 'ARTIST', col: 19, expected: 'Current Favorite Artist' },
+      { name: 'SONG', col: 20, expected: 'Name one song you want to hear at the party' },
+      { name: 'RECENT_PURCHASE', col: 21, expected: 'Recent purchase you\'re most happy about' },
+      { name: 'AT_WORST', col: 22, expected: 'At your worst you are…' },
+      { name: 'SOCIAL_STANCE', col: 23, expected: 'Which best describes your general social stance?' },
+      { name: 'SCREEN_NAME', col: 24, expected: 'Screen Name' },
+      { name: 'UID', col: 25, expected: 'UID' },
+      { name: 'DDD_SCORE', col: 26, expected: 'DDD_Score' },
+      { name: 'CHECKED_IN', col: 27, expected: 'Checked-In' },
+      { name: 'CHECKIN_TIME', col: 28, expected: 'Check-in Time' },
+      { name: 'PHOTO_URL', col: 29, expected: 'PHOTO_URL_COL' }
+    ];
+
+    let matchCount = 0;
+    let mismatchCount = 0;
+
+    configChecks.forEach(check => {
+      const actual = frcHeaders[check.col] || '(empty)';
+      const colLetter = String.fromCharCode(65 + check.col);
+      const matches = String(actual).trim() === String(check.expected).trim();
+
+      if (matches || String(actual).includes(check.expected) || String(check.expected).includes(actual)) {
+        report.push(`  ✓ CONFIG.COL.${check.name} (${colLetter}/${check.col}): "${actual}"`);
+        matchCount++;
+      } else {
+        report.push(`  ❌ CONFIG.COL.${check.name} (${colLetter}/${check.col}): Expected "${check.expected}", Got "${actual}"`);
+        mismatchCount++;
+      }
+    });
+
+    report.push('');
+    report.push(`Summary: ${matchCount} matches, ${mismatchCount} mismatches`);
+    report.push('');
+  }
+
+  // Verify Form Responses 1 structure
+  if (formSheet) {
+    report.push('=== FORM RESPONSES 1 SHEET ANALYSIS ===');
+    report.push('Sheet Name: ' + formSheet.getName());
+    report.push('Rows: ' + formSheet.getLastRow());
+    report.push('Columns: ' + formSheet.getLastColumn());
+    report.push('');
+
+    const formHeaders = formSheet.getRange(1, 1, 1, Math.min(30, formSheet.getLastColumn())).getValues()[0];
+    report.push('FORM RESPONSES 1 HEADERS (First 30 columns):');
+    formHeaders.forEach((header, idx) => {
+      const colLetter = String.fromCharCode(65 + idx);
+      report.push(`  ${colLetter} (${idx}): ${header || '(empty)'}`);
+    });
+    report.push('');
+
+    // Check if SPEC headers exist
+    report.push('=== SPEC HEADER VERIFICATION ===');
+    const specHeaders = [
+      'Timestamp',
+      'Birthday (MM/DD)',
+      'Age Range',
+      'Education Level',
+      'Current 5 Digit Zip Code',
+      'Self Identified Ethnicity',
+      'Self-Identified Gender',
+      'Self-Identified Sexual Orientation',
+      'Employment Information (Industry)',
+      'Employment Information (Role)',
+      'Do you know the Host(s)?',
+      'Which host have you known the longest?',
+      'If yes, how well do you know them?',
+      'Your General Interests (Choose 3)',
+      'Music Preference',
+      'Current Favorite Artist',
+      'Name one song you want to hear at the party',
+      'Recent purchase you\'re most happy about',
+      'At your worst you are…',
+      'Which best describes your general social stance?'
+    ];
+
+    let specMatchCount = 0;
+    specHeaders.forEach(specHeader => {
+      const found = formHeaders.some(h => String(h).trim() === String(specHeader).trim());
+      if (found) {
+        report.push(`  ✓ Found: "${specHeader}"`);
+        specMatchCount++;
+      } else {
+        // Try fuzzy match
+        const fuzzyFound = formHeaders.some(h =>
+          String(h).toLowerCase().includes(String(specHeader).toLowerCase().substring(0, 15))
+        );
+        if (fuzzyFound) {
+          report.push(`  ⚠️ Fuzzy match: "${specHeader}"`);
+          specMatchCount++;
+        } else {
+          report.push(`  ❌ Missing: "${specHeader}"`);
+        }
+      }
+    });
+
+    report.push('');
+    report.push(`SPEC Summary: ${specMatchCount}/${specHeaders.length} headers found`);
+    report.push('');
+  }
+
+  // Check Pan_Master if it exists
+  const panMaster = ss.getSheetByName('Pan_Master');
+  if (panMaster) {
+    report.push('=== PAN_MASTER SHEET ANALYSIS ===');
+    report.push('Sheet Name: ' + panMaster.getName());
+    report.push('Rows: ' + panMaster.getLastRow());
+    report.push('Columns: ' + panMaster.getLastColumn());
+    report.push('');
+
+    const panHeaders = panMaster.getRange(1, 1, 1, Math.min(20, panMaster.getLastColumn())).getValues()[0];
+    report.push('PAN_MASTER FIRST 20 COLUMNS:');
+    panHeaders.forEach((header, idx) => {
+      report.push(`  ${idx+1}. ${header}`);
+    });
+
+    // Check for numeric columns
+    const hasKnowScoreNum = panHeaders.some(h => String(h).includes('know_score'));
+    const hasSocialStanceNum = panHeaders.some(h => String(h).includes('social_stance'));
+    report.push('');
+    report.push('Numeric column check:');
+    report.push(`  know_score column: ${hasKnowScoreNum ? '✓ Found' : '❌ Not found'}`);
+    report.push(`  social_stance column: ${hasSocialStanceNum ? '✓ Found' : '❌ Not found'}`);
+    report.push('');
+  }
+
+  // Final recommendations
+  report.push('=== RECOMMENDATIONS ===');
+  if (frcSheet && formSheet) {
+    if (frcSheet.getName() === formSheet.getName()) {
+      report.push('✓ FRC and Form Responses 1 are the same sheet');
+    } else {
+      report.push('⚠️ FRC and Form Responses 1 are DIFFERENT sheets');
+      report.push('   - ANALYTICSTest uses: ' + formSheet.getName());
+      report.push('   - Code.gs/Tools.gs use: ' + frcSheet.getName());
+      report.push('   - Recommendation: Ensure data is synchronized or unify to one sheet');
+    }
+  } else if (frcSheet) {
+    report.push('⚠️ Only FRC sheet found, "Form Responses 1" missing');
+    report.push('   - Update ANALYTICSTest to use FRC sheet name');
+  } else if (formSheet) {
+    report.push('⚠️ Only "Form Responses 1" found, FRC missing');
+    report.push('   - Either rename to FRC or update CONFIG.SHEETS.FRC');
+  }
+
+  report.push('');
+  report.push('=== END OF REPORT ===');
+
+  // Log to console
+  const fullReport = report.join('\n');
+  Logger.log(fullReport);
+
+  // Write to sheet
+  let reportSheet = ss.getSheetByName('Structure_Verification');
+  if (!reportSheet) {
+    reportSheet = ss.insertSheet('Structure_Verification');
+  }
+  reportSheet.clear();
+
+  // Write report as rows
+  const reportData = report.map(line => [line]);
+  reportSheet.getRange(1, 1, reportData.length, 1).setValues(reportData);
+  reportSheet.setColumnWidth(1, 800);
+  reportSheet.getRange('A1').setFontWeight('bold');
+
+  // Show summary dialog
+  const summary = [
+    'Sheet Structure Verification Complete!',
+    '',
+    'See "Structure_Verification" sheet for full report.',
+    '',
+    'Quick Summary:',
+    `- FRC Sheet: ${frcSheet ? '✓ Found' : '❌ Not found'}`,
+    `- Form Responses 1: ${formSheet ? '✓ Found' : '❌ Not found'}`,
+    panMaster ? `- Pan_Master: ✓ Found` : '',
+    '',
+    'Check the console log and new sheet for details.'
+  ].filter(Boolean).join('\n');
+
+  ui.alert('Verification Complete', summary, ui.ButtonSet.OK);
+
+  return fullReport;
+}
+
+/**
+ * Quick check function - just logs to console
+ */
+function quickCheck() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets().map(s => s.getName());
+
+  Logger.log('=== QUICK SHEET CHECK ===');
+  Logger.log('Sheets: ' + sheets.join(', '));
+  Logger.log('');
+  Logger.log('Looking for:');
+  Logger.log('  - FRC: ' + (sheets.includes('FRC') ? 'YES' : 'NO'));
+  Logger.log('  - Form Responses 1: ' + (sheets.includes('Form Responses 1') ? 'YES' : 'NO'));
+  Logger.log('  - Form Responses (Clean): ' + (sheets.includes('Form Responses (Clean)') ? 'YES' : 'NO'));
+  Logger.log('  - Pan_Master: ' + (sheets.includes('Pan_Master') ? 'YES' : 'NO'));
+  Logger.log('  - Pan_Dict: ' + (sheets.includes('Pan_Dict') ? 'YES' : 'NO'));
+  Logger.log('  - V_Cramers: ' + (sheets.includes('V_Cramers') ? 'YES' : 'NO'));
+  Logger.log('  - Guest_Similarity: ' + (sheets.includes('Guest_Similarity') ? 'YES' : 'NO'));
+  Logger.log('  - Gen_Analytics: ' + (sheets.includes('Gen_Analytics') ? 'YES' : 'NO'));
+}
+
+/**
+ * ============================================================================
+ * CHECK-IN TOOLS - Auto-Populate and Management Functions
+ * ============================================================================
+ *
+ * Utilities to manage guest check-ins in FRC sheet
+ * Ensures Column AB (Checked-In) is properly formatted as "Y"
+ *
+ * FUNCTIONS:
+ * 1. autoCheckInAll() - Check in ALL guests with Screen Name & UID
+ * 2. autoCheckInRandom(count) - Check in random number of guests
+ * 3. autoCheckInByUID(uid) - Check in specific guest by UID
+ * 4. autoCheckInByScreenName(screenName) - Check in by screen name
+ * 5. clearAllCheckIns() - Clear all check-ins (set to "")
+ * 6. getCheckInStats() - Get current check-in statistics
+ *
+ * MENU INTEGRATION:
+ * Add to onOpen() in Code.gs:
+ *   .addItem('✅ Check In All Guests', 'autoCheckInAll')
+ *   .addItem('🎲 Check In Random Guests', 'autoCheckInRandomPrompt')
+ *   .addItem('❌ Clear All Check-Ins', 'clearAllCheckIns')
+ *   .addItem('📊 Check-In Stats', 'showCheckInStats')
+ *
+ * ============================================================================
+ */
+
+/**
+ * Auto check-in ALL guests who have Screen Name and UID
+ * Sets Column AB = "Y" and Column AC = current timestamp
+ *
+ * @return {Object} {success: Boolean, checkedIn: Number, message: String}
+ */
+function autoCheckInAll() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      SpreadsheetApp.getUi().alert('❌ Error', 'FRC sheet not found', SpreadsheetApp.getUi().ButtonSet.OK);
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+    let checkedInCount = 0;
+
+    // Column indices (0-indexed)
+    const SCREEN_NAME_COL = 24;  // Column Y
+    const UID_COL = 25;          // Column Z
+    const CHECKED_IN_COL = 27;   // Column AB
+    const CHECKIN_TIME_COL = 28; // Column AC
+
+    Logger.log('🔄 Starting auto check-in for all guests...');
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+      const uid = String(row[UID_COL] || '').trim();
+
+      // Only check in if guest has both Screen Name and UID
+      if (screenName && uid) {
+        // Set Checked-In to exactly "Y"
+        frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('Y');
+
+        // Set check-in timestamp
+        frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue(now);
+
+        checkedInCount++;
+      }
+    }
+
+    Logger.log('✅ Checked in ' + checkedInCount + ' guests');
+
+    // Show success message
+    SpreadsheetApp.getUi().alert(
+      '✅ Success',
+      'Checked in ' + checkedInCount + ' guests!\n\nAll guests with Screen Name and UID are now checked in.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      checkedIn: checkedInCount,
+      message: 'Successfully checked in ' + checkedInCount + ' guests'
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInAll: ' + error.toString());
+    SpreadsheetApp.getUi().alert('❌ Error', error.toString(), SpreadsheetApp.getUi().ButtonSet.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Auto check-in a random number of guests
+ * Useful for testing MM and ALM pages
+ *
+ * @param {Number} count - Number of guests to check in (default: 10)
+ * @return {Object} {success: Boolean, checkedIn: Number, guests: Array}
+ */
+function autoCheckInRandom(count) {
+  count = count || 10;
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+
+    // Column indices
+    const SCREEN_NAME_COL = 24;
+    const UID_COL = 25;
+    const CHECKED_IN_COL = 27;
+    const CHECKIN_TIME_COL = 28;
+
+    // Find all guests with Screen Name and UID
+    const eligibleGuests = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+      const uid = String(row[UID_COL] || '').trim();
+
+      if (screenName && uid) {
+        eligibleGuests.push({
+          rowIndex: i,
+          screenName: screenName,
+          uid: uid
+        });
+      }
+    }
+
+    if (eligibleGuests.length === 0) {
+      SpreadsheetApp.getUi().alert('⚠️ Warning', 'No eligible guests found with Screen Name and UID', SpreadsheetApp.getUi().ButtonSet.OK);
+      return { success: false, message: 'No eligible guests' };
+    }
+
+    // Shuffle and select random guests
+    const shuffled = eligibleGuests.sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(count, eligibleGuests.length));
+
+    // Check in selected guests
+    const checkedInGuests = [];
+    for (const guest of selected) {
+      frcSheet.getRange(guest.rowIndex + 1, CHECKED_IN_COL + 1).setValue('Y');
+      frcSheet.getRange(guest.rowIndex + 1, CHECKIN_TIME_COL + 1).setValue(now);
+      checkedInGuests.push(guest.screenName);
+    }
+
+    Logger.log('✅ Randomly checked in ' + selected.length + ' guests: ' + checkedInGuests.join(', '));
+
+    SpreadsheetApp.getUi().alert(
+      '✅ Success',
+      'Randomly checked in ' + selected.length + ' guests:\n\n' + checkedInGuests.slice(0, 10).join('\n') +
+      (checkedInGuests.length > 10 ? '\n... and ' + (checkedInGuests.length - 10) + ' more' : ''),
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      checkedIn: selected.length,
+      guests: checkedInGuests
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInRandom: ' + error.toString());
+    SpreadsheetApp.getUi().alert('❌ Error', error.toString(), SpreadsheetApp.getUi().ButtonSet.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Prompt user for number of random guests to check in
+ * (Menu-friendly wrapper for autoCheckInRandom)
+ */
+function autoCheckInRandomPrompt() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.prompt(
+    '🎲 Random Check-In',
+    'How many random guests would you like to check in?',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() === ui.Button.OK) {
+    const count = parseInt(response.getResponseText());
+
+    if (isNaN(count) || count <= 0) {
+      ui.alert('⚠️ Invalid Input', 'Please enter a positive number', ui.ButtonSet.OK);
+      return;
+    }
+
+    autoCheckInRandom(count);
+  }
+}
+
+/**
+ * Check in a specific guest by UID
+ *
+ * @param {String} uid - Guest UID to check in
+ * @return {Object} {success: Boolean, screenName: String, message: String}
+ */
+function autoCheckInByUID(uid) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+
+    const UID_COL = 25;
+    const SCREEN_NAME_COL = 24;
+    const CHECKED_IN_COL = 27;
+    const CHECKIN_TIME_COL = 28;
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowUID = String(row[UID_COL] || '').trim();
+
+      if (rowUID === uid) {
+        const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+
+        frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('Y');
+        frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue(now);
+
+        Logger.log('✅ Checked in guest: ' + screenName + ' (UID: ' + uid + ')');
+
+        return {
+          success: true,
+          screenName: screenName,
+          message: 'Checked in: ' + screenName
+        };
+      }
+    }
+
+    return { success: false, message: 'Guest with UID ' + uid + ' not found' };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInByUID: ' + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Check in a specific guest by Screen Name
+ *
+ * @param {String} screenName - Guest screen name to check in
+ * @return {Object} {success: Boolean, uid: String, message: String}
+ */
+function autoCheckInByScreenName(screenName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+
+    const SCREEN_NAME_COL = 24;
+    const UID_COL = 25;
+    const CHECKED_IN_COL = 27;
+    const CHECKIN_TIME_COL = 28;
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowScreenName = String(row[SCREEN_NAME_COL] || '').trim();
+
+      if (rowScreenName.toLowerCase() === screenName.toLowerCase()) {
+        const uid = String(row[UID_COL] || '').trim();
+
+        frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('Y');
+        frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue(now);
+
+        Logger.log('✅ Checked in guest: ' + rowScreenName + ' (UID: ' + uid + ')');
+
+        return {
+          success: true,
+          uid: uid,
+          message: 'Checked in: ' + rowScreenName
+        };
+      }
+    }
+
+    return { success: false, message: 'Guest "' + screenName + '" not found' };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInByScreenName: ' + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Clear ALL check-ins (set Column AB to empty string)
+ * Useful for testing or resetting event
+ *
+ * @return {Object} {success: Boolean, cleared: Number, message: String}
+ */
+function clearAllCheckIns() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    // Confirmation dialog
+    const response = ui.alert(
+      '⚠️ Clear All Check-Ins',
+      'This will CLEAR all guest check-ins.\n\nAre you sure you want to continue?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response !== ui.Button.YES) {
+      return { success: false, message: 'Cancelled by user' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    let clearedCount = 0;
+
+    const CHECKED_IN_COL = 27;   // Column AB
+    const CHECKIN_TIME_COL = 28; // Column AC
+
+    Logger.log('🔄 Clearing all check-ins...');
+
+    for (let i = 1; i < data.length; i++) {
+      // Clear both Checked-In and Check-In Time
+      frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('');
+      frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue('');
+      clearedCount++;
+    }
+
+    Logger.log('✅ Cleared ' + clearedCount + ' check-ins');
+
+    ui.alert(
+      '✅ Success',
+      'Cleared check-ins for ' + clearedCount + ' rows.\n\nAll guests are now checked out.',
+      ui.ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      cleared: clearedCount,
+      message: 'Cleared ' + clearedCount + ' check-ins'
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error in clearAllCheckIns: ' + error.toString());
+    SpreadsheetApp.getUi().alert('❌ Error', error.toString(), SpreadsheetApp.getUi().ButtonSet.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * ============================================================================
+ * CHECK-IN TOOLS - Auto-Populate and Management Functions
+ * ============================================================================
+ *
+ * Utilities to manage guest check-ins in FRC sheet
+ * Ensures Column AB (Checked-In) is properly formatted as "Y"
+ *
+ * FUNCTIONS:
+ * 1. autoCheckInAll() - Check in ALL guests with Screen Name & UID
+ * 2. autoCheckInRandom(count) - Check in random number of guests
+ * 3. autoCheckInByUID(uid) - Check in specific guest by UID
+ * 4. autoCheckInByScreenName(screenName) - Check in by screen name
+ * 5. clearAllCheckIns() - Clear all check-ins (set to "")
+ * 6. getCheckInStats() - Get current check-in statistics
+ *
+ * MENU INTEGRATION:
+ * Add to onOpen() in Code.gs:
+ *   .addItem('✅ Check In All Guests', 'autoCheckInAll')
+ *   .addItem('🎲 Check In Random Guests', 'autoCheckInRandomPrompt')
+ *   .addItem('❌ Clear All Check-Ins', 'clearAllCheckIns')
+ *   .addItem('📊 Check-In Stats', 'showCheckInStats')
+ *
+ * ============================================================================
+ */
+
+/**
+ * Auto check-in ALL guests who have Screen Name and UID
+ * Sets Column AB = "Y" and Column AC = current timestamp
+ *
+ * @return {Object} {success: Boolean, checkedIn: Number, message: String}
+ */
+function autoCheckInAll() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      SpreadsheetApp.getUi().alert('❌ Error', 'FRC sheet not found', SpreadsheetApp.getUi().ButtonSet.OK);
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+    let checkedInCount = 0;
+
+    // Column indices (0-indexed)
+    const SCREEN_NAME_COL = 24;  // Column Y
+    const UID_COL = 25;          // Column Z
+    const CHECKED_IN_COL = 27;   // Column AB
+    const CHECKIN_TIME_COL = 28; // Column AC
+
+    Logger.log('🔄 Starting auto check-in for all guests...');
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+      const uid = String(row[UID_COL] || '').trim();
+
+      // Only check in if guest has both Screen Name and UID
+      if (screenName && uid) {
+        // Set Checked-In to exactly "Y"
+        frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('Y');
+
+        // Set check-in timestamp
+        frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue(now);
+
+        checkedInCount++;
+      }
+    }
+
+    Logger.log('✅ Checked in ' + checkedInCount + ' guests');
+
+    // Show success message
+    SpreadsheetApp.getUi().alert(
+      '✅ Success',
+      'Checked in ' + checkedInCount + ' guests!\n\nAll guests with Screen Name and UID are now checked in.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      checkedIn: checkedInCount,
+      message: 'Successfully checked in ' + checkedInCount + ' guests'
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInAll: ' + error.toString());
+    SpreadsheetApp.getUi().alert('❌ Error', error.toString(), SpreadsheetApp.getUi().ButtonSet.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Auto check-in a random number of guests
+ * Useful for testing MM and ALM pages
+ *
+ * @param {Number} count - Number of guests to check in (default: 10)
+ * @return {Object} {success: Boolean, checkedIn: Number, guests: Array}
+ */
+function autoCheckInRandom(count) {
+  count = count || 10;
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+
+    // Column indices
+    const SCREEN_NAME_COL = 24;
+    const UID_COL = 25;
+    const CHECKED_IN_COL = 27;
+    const CHECKIN_TIME_COL = 28;
+
+    // Find all guests with Screen Name and UID
+    const eligibleGuests = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+      const uid = String(row[UID_COL] || '').trim();
+
+      if (screenName && uid) {
+        eligibleGuests.push({
+          rowIndex: i,
+          screenName: screenName,
+          uid: uid
+        });
+      }
+    }
+
+    if (eligibleGuests.length === 0) {
+      SpreadsheetApp.getUi().alert('⚠️ Warning', 'No eligible guests found with Screen Name and UID', SpreadsheetApp.getUi().ButtonSet.OK);
+      return { success: false, message: 'No eligible guests' };
+    }
+
+    // Shuffle and select random guests
+    const shuffled = eligibleGuests.sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(count, eligibleGuests.length));
+
+    // Check in selected guests
+    const checkedInGuests = [];
+    for (const guest of selected) {
+      frcSheet.getRange(guest.rowIndex + 1, CHECKED_IN_COL + 1).setValue('Y');
+      frcSheet.getRange(guest.rowIndex + 1, CHECKIN_TIME_COL + 1).setValue(now);
+      checkedInGuests.push(guest.screenName);
+    }
+
+    Logger.log('✅ Randomly checked in ' + selected.length + ' guests: ' + checkedInGuests.join(', '));
+
+    SpreadsheetApp.getUi().alert(
+      '✅ Success',
+      'Randomly checked in ' + selected.length + ' guests:\n\n' + checkedInGuests.slice(0, 10).join('\n') +
+      (checkedInGuests.length > 10 ? '\n... and ' + (checkedInGuests.length - 10) + ' more' : ''),
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      checkedIn: selected.length,
+      guests: checkedInGuests
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInRandom: ' + error.toString());
+    SpreadsheetApp.getUi().alert('❌ Error', error.toString(), SpreadsheetApp.getUi().ButtonSet.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Prompt user for number of random guests to check in
+ * (Menu-friendly wrapper for autoCheckInRandom)
+ */
+function autoCheckInRandomPrompt() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.prompt(
+    '🎲 Random Check-In',
+    'How many random guests would you like to check in?',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() === ui.Button.OK) {
+    const count = parseInt(response.getResponseText());
+
+    if (isNaN(count) || count <= 0) {
+      ui.alert('⚠️ Invalid Input', 'Please enter a positive number', ui.ButtonSet.OK);
+      return;
+    }
+
+    autoCheckInRandom(count);
+  }
+}
+
+/**
+ * Quick check-in functions for common amounts
+ */
+function autoCheckIn6() {
+  autoCheckInRandom(6);
+}
+
+function autoCheckIn10() {
+  autoCheckInRandom(10);
+}
+
+function autoCheckIn15() {
+  autoCheckInRandom(15);
+}
+
+function autoCheckIn25() {
+  autoCheckInRandom(25);
+}
+
+function autoCheckIn50() {
+  autoCheckInRandom(50);
+}
+
+function autoCheckIn100() {
+  autoCheckInRandom(100);
+}
+
+/**
+ * Check in a specific guest by UID
+ *
+ * @param {String} uid - Guest UID to check in
+ * @return {Object} {success: Boolean, screenName: String, message: String}
+ */
+function autoCheckInByUID(uid) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+
+    const UID_COL = 25;
+    const SCREEN_NAME_COL = 24;
+    const CHECKED_IN_COL = 27;
+    const CHECKIN_TIME_COL = 28;
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowUID = String(row[UID_COL] || '').trim();
+
+      if (rowUID === uid) {
+        const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+
+        frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('Y');
+        frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue(now);
+
+        Logger.log('✅ Checked in guest: ' + screenName + ' (UID: ' + uid + ')');
+
+        return {
+          success: true,
+          screenName: screenName,
+          message: 'Checked in: ' + screenName
+        };
+      }
+    }
+
+    return { success: false, message: 'Guest with UID ' + uid + ' not found' };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInByUID: ' + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Check in a specific guest by Screen Name
+ *
+ * @param {String} screenName - Guest screen name to check in
+ * @return {Object} {success: Boolean, uid: String, message: String}
+ */
+function autoCheckInByScreenName(screenName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    const now = new Date();
+
+    const SCREEN_NAME_COL = 24;
+    const UID_COL = 25;
+    const CHECKED_IN_COL = 27;
+    const CHECKIN_TIME_COL = 28;
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowScreenName = String(row[SCREEN_NAME_COL] || '').trim();
+
+      if (rowScreenName.toLowerCase() === screenName.toLowerCase()) {
+        const uid = String(row[UID_COL] || '').trim();
+
+        frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('Y');
+        frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue(now);
+
+        Logger.log('✅ Checked in guest: ' + rowScreenName + ' (UID: ' + uid + ')');
+
+        return {
+          success: true,
+          uid: uid,
+          message: 'Checked in: ' + rowScreenName
+        };
+      }
+    }
+
+    return { success: false, message: 'Guest "' + screenName + '" not found' };
+
+  } catch (error) {
+    Logger.log('❌ Error in autoCheckInByScreenName: ' + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Clear ALL check-ins (set Column AB to empty string)
+ * Useful for testing or resetting event
+ *
+ * @return {Object} {success: Boolean, cleared: Number, message: String}
+ */
+function clearAllCheckIns() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    // Confirmation dialog
+    const response = ui.alert(
+      '⚠️ Clear All Check-Ins',
+      'This will CLEAR all guest check-ins.\n\nAre you sure you want to continue?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response !== ui.Button.YES) {
+      return { success: false, message: 'Cancelled by user' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+    let clearedCount = 0;
+
+    const CHECKED_IN_COL = 27;   // Column AB
+    const CHECKIN_TIME_COL = 28; // Column AC
+
+    Logger.log('🔄 Clearing all check-ins...');
+
+    for (let i = 1; i < data.length; i++) {
+      // Clear both Checked-In and Check-In Time
+      frcSheet.getRange(i + 1, CHECKED_IN_COL + 1).setValue('');
+      frcSheet.getRange(i + 1, CHECKIN_TIME_COL + 1).setValue('');
+      clearedCount++;
+    }
+
+    Logger.log('✅ Cleared ' + clearedCount + ' check-ins');
+
+    ui.alert(
+      '✅ Success',
+      'Cleared check-ins for ' + clearedCount + ' rows.\n\nAll guests are now checked out.',
+      ui.ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      cleared: clearedCount,
+      message: 'Cleared ' + clearedCount + ' check-ins'
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error in clearAllCheckIns: ' + error.toString());
+    SpreadsheetApp.getUi().alert('❌ Error', error.toString(), SpreadsheetApp.getUi().ButtonSet.OK);
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Get current check-in statistics
+ *
+ * @return {Object} Stats object with counts and details
+ */
+function getCheckInStats() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+
+    const SCREEN_NAME_COL = 24;
+    const UID_COL = 25;
+    const CHECKED_IN_COL = 27;
+
+    let totalRows = data.length - 1; // Exclude header
+    let guestsWithData = 0;
+    let checkedInCount = 0;
+    let checkedInWithY = 0;
+    let checkedInOtherValues = 0;
+    let invalidValues = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+      const uid = String(row[UID_COL] || '').trim();
+      const checkedInRaw = row[CHECKED_IN_COL];
+      const checkedIn = String(checkedInRaw || '').trim().toUpperCase();
+
+      if (screenName && uid) {
+        guestsWithData++;
+      }
+
+      if (checkedIn) {
+        checkedInCount++;
+
+        if (checkedIn === 'Y') {
+          checkedInWithY++;
+        } else {
+          checkedInOtherValues++;
+          invalidValues.push({
+            row: i + 1,
+            screenName: screenName,
+            value: checkedInRaw
+          });
+        }
+      }
+    }
+
+    const stats = {
+      success: true,
+      totalRows: totalRows,
+      guestsWithData: guestsWithData,
+      checkedInCount: checkedInCount,
+      checkedInWithY: checkedInWithY,
+      checkedInOtherValues: checkedInOtherValues,
+      invalidValues: invalidValues.slice(0, 10) // First 10 invalid
+    };
+
+    Logger.log('📊 Check-In Stats:');
+    Logger.log('   Total rows: ' + totalRows);
+    Logger.log('   Guests with Screen Name & UID: ' + guestsWithData);
+    Logger.log('   Checked in (any value): ' + checkedInCount);
+    Logger.log('   Checked in with "Y": ' + checkedInWithY);
+    Logger.log('   Checked in with other values: ' + checkedInOtherValues);
+
+    return stats;
+
+  } catch (error) {
+    Logger.log('❌ Error in getCheckInStats: ' + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Show check-in statistics in a dialog
+ * (Menu-friendly wrapper for getCheckInStats)
+ */
+function showCheckInStats() {
+  const stats = getCheckInStats();
+
+  if (!stats.success) {
+    SpreadsheetApp.getUi().alert('❌ Error', stats.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  }
+
+  let message = '📊 CHECK-IN STATISTICS\n\n';
+  message += 'Total rows: ' + stats.totalRows + '\n';
+  message += 'Guests with data: ' + stats.guestsWithData + '\n\n';
+  message += '✅ Checked in with "Y": ' + stats.checkedInWithY + '\n';
+  message += '⚠️ Checked in (other values): ' + stats.checkedInOtherValues + '\n';
+  message += 'Not checked in: ' + (stats.guestsWithData - stats.checkedInCount) + '\n';
+
+  if (stats.checkedInOtherValues > 0) {
+    message += '\n⚠️ WARNING: ' + stats.checkedInOtherValues + ' guests have invalid check-in values!\n';
+    message += 'Examples:\n';
+    stats.invalidValues.forEach(item => {
+      message += '  Row ' + item.row + ': "' + item.value + '" (' + item.screenName + ')\n';
+    });
+    message += '\nUse "Check In All Guests" to fix this.';
+  }
+
+  SpreadsheetApp.getUi().alert('📊 Check-In Stats', message, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/**
+ * ============================================================================
+ * EXAMPLE MENU INTEGRATION (Add to Code.gs onOpen function)
+ * ============================================================================
+ *
+ * function onOpen() {
+ *   const ui = SpreadsheetApp.getUi();
+ *   ui.createMenu('🛠️ Tools')
+ *     .addSubMenu(ui.createMenu('✅ Check-In Tools')
+ *       .addItem('✅ Check In All Guests', 'autoCheckInAll')
+ *       .addSeparator()
+ *       .addSubMenu(ui.createMenu('🎲 Check In Random Amount')
+ *         .addItem('Custom Amount...', 'autoCheckInRandomPrompt')
+ *         .addSeparator()
+ *         .addItem('Check In 6 Guests', 'autoCheckIn6')
+ *         .addItem('Check In 10 Guests', 'autoCheckIn10')
+ *         .addItem('Check In 15 Guests', 'autoCheckIn15')
+ *         .addItem('Check In 25 Guests', 'autoCheckIn25')
+ *         .addItem('Check In 50 Guests', 'autoCheckIn50')
+ *         .addItem('Check In 100 Guests', 'autoCheckIn100'))
+ *       .addSeparator()
+ *       .addItem('📊 Check-In Stats', 'showCheckInStats')
+ *       .addSeparator()
+ *       .addItem('❌ Clear All Check-Ins', 'clearAllCheckIns'))
+ *     .addToUi();
+ * }
+ *
+ * ============================================================================
+ */
+/**
+ * Get current check-in statistics
+ *
+ * @return {Object} Stats object with counts and details
+ */
+function getCheckInStats() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const frcSheet = ss.getSheetByName('FRC');
+
+    if (!frcSheet) {
+      return { success: false, message: 'FRC sheet not found' };
+    }
+
+    const data = frcSheet.getDataRange().getValues();
+
+    const SCREEN_NAME_COL = 24;
+    const UID_COL = 25;
+    const CHECKED_IN_COL = 27;
+
+    let totalRows = data.length - 1; // Exclude header
+    let guestsWithData = 0;
+    let checkedInCount = 0;
+    let checkedInWithY = 0;
+    let checkedInOtherValues = 0;
+    let invalidValues = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[SCREEN_NAME_COL] || '').trim();
+      const uid = String(row[UID_COL] || '').trim();
+      const checkedInRaw = row[CHECKED_IN_COL];
+      const checkedIn = String(checkedInRaw || '').trim().toUpperCase();
+
+      if (screenName && uid) {
+        guestsWithData++;
+      }
+
+      if (checkedIn) {
+        checkedInCount++;
+
+        if (checkedIn === 'Y') {
+          checkedInWithY++;
+        } else {
+          checkedInOtherValues++;
+          invalidValues.push({
+            row: i + 1,
+            screenName: screenName,
+            value: checkedInRaw
+          });
+        }
+      }
+    }
+
+    const stats = {
+      success: true,
+      totalRows: totalRows,
+      guestsWithData: guestsWithData,
+      checkedInCount: checkedInCount,
+      checkedInWithY: checkedInWithY,
+      checkedInOtherValues: checkedInOtherValues,
+      invalidValues: invalidValues.slice(0, 10) // First 10 invalid
+    };
+
+    Logger.log('📊 Check-In Stats:');
+    Logger.log('   Total rows: ' + totalRows);
+    Logger.log('   Guests with Screen Name & UID: ' + guestsWithData);
+    Logger.log('   Checked in (any value): ' + checkedInCount);
+    Logger.log('   Checked in with "Y": ' + checkedInWithY);
+    Logger.log('   Checked in with other values: ' + checkedInOtherValues);
+
+    return stats;
+
+  } catch (error) {
+    Logger.log('❌ Error in getCheckInStats: ' + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+/**
+ * Show check-in statistics in a dialog
+ * (Menu-friendly wrapper for getCheckInStats)
+ */
+function showCheckInStats() {
+  const stats = getCheckInStats();
+
+  if (!stats.success) {
+    SpreadsheetApp.getUi().alert('❌ Error', stats.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  }
+
+  let message = '📊 CHECK-IN STATISTICS\n\n';
+  message += 'Total rows: ' + stats.totalRows + '\n';
+  message += 'Guests with data: ' + stats.guestsWithData + '\n\n';
+  message += '✅ Checked in with "Y": ' + stats.checkedInWithY + '\n';
+  message += '⚠️ Checked in (other values): ' + stats.checkedInOtherValues + '\n';
+  message += 'Not checked in: ' + (stats.guestsWithData - stats.checkedInCount) + '\n';
+
+  if (stats.checkedInOtherValues > 0) {
+    message += '\n⚠️ WARNING: ' + stats.checkedInOtherValues + ' guests have invalid check-in values!\n';
+    message += 'Examples:\n';
+    stats.invalidValues.forEach(item => {
+      message += '  Row ' + item.row + ': "' + item.value + '" (' + item.screenName + ')\n';
+    });
+    message += '\nUse "Check In All Guests" to fix this.';
+  }
+
+  SpreadsheetApp.getUi().alert('📊 Check-In Stats', message, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/**
+ * ============================================================================
+ * EXAMPLE MENU INTEGRATION (Add to Code.gs onOpen function)
+ * ============================================================================
+ *
+ * function onOpen() {
+ *   const ui = SpreadsheetApp.getUi();
+ *   ui.createMenu('🛠️ Tools')
+ *     .addSubMenu(ui.createMenu('✅ Check-In Tools')
+ *       .addItem('✅ Check In All Guests', 'autoCheckInAll')
+ *       .addItem('🎲 Check In Random Guests', 'autoCheckInRandomPrompt')
+ *       .addSeparator()
+ *       .addItem('📊 Check-In Stats', 'showCheckInStats')
+ *       .addSeparator()
+ *       .addItem('❌ Clear All Check-Ins', 'clearAllCheckIns'))
+ *     .addToUi();
+ * }
+ *
+ * ============================================================================
+ */
+/**
+ * ============================================================================
+ * END OF TOOLS
+ * ============================================================================
+ *
+ * NOTES:
+ * - All sheet references now use CONFIG.SHEETS from Code.gs
+ * - Testing functions help verify system functionality
+ * - Analysis functions provide data insights
+ * - Documentation functions auto-generate data dictionaries
+ * - Matchmaking analytics help design algorithm thresholds
+ * - Gen_Analytics provides unified analytics framework
+ * - listAllInterests() extracts complete interest catalog from dictionary
+ *
+ * For questions about column mappings, see SheetLocations file or CONFIG in Code.gs
+ * ============================================================================
+ */
