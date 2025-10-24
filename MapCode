@@ -25,6 +25,10 @@ const MAP_CONFIG = {
   TARGET_ZIP: '64110',                                   // The target zip code to highlight
   TARGET_ADDRESS: '5317 Charlotte St, Kansas City, MO', // Full address for precise geocoding
   TARGET_DISPLAY_NAME: '5317 Charlotte',                // Display name for the target location
+  TARGET_COORDS_FALLBACK: {                             // Pre-seeded coordinates when live geocode fails
+    lat: 39.030691,
+    lng: -94.576081
+  },
   GEOCODE_DELAY_MS: 1100                                // Delay between geocode requests (Nominatim: 1 req/sec)
 };
 
@@ -121,6 +125,7 @@ function getZipCodesFromSheet() {
  * // Returns: {lat: 39.0639, lng: -94.5744}
  */
 function getAddressCoordinates(address) {
+  const fallbackCoords = MAP_CONFIG.TARGET_COORDS_FALLBACK || null;
   try {
     const encodedAddress = encodeURIComponent(address);
     const url = 'https://nominatim.openstreetmap.org/search?q=' + encodedAddress + '&format=json&limit=1';
@@ -134,7 +139,19 @@ function getAddressCoordinates(address) {
     };
 
     const response = UrlFetchApp.fetch(url, options);
-    const data = JSON.parse(response.getContentText());
+    const status = response.getResponseCode();
+
+    if (status < 200 || status >= 300) {
+      Logger.log('WARNING: Geocode request returned status ' + status + ' for address "' + address + '"');
+    }
+
+    const text = response.getContentText();
+    if (!text) {
+      Logger.log('WARNING: Empty geocode response for address "' + address + '"');
+      return fallbackCoords;
+    }
+
+    const data = JSON.parse(text);
 
     if (data && data.length > 0) {
       const result = data[0];
@@ -144,11 +161,13 @@ function getAddressCoordinates(address) {
         lng: parseFloat(result.lon)
       };
     }
-    Logger.log('WARNING: Could not geocode address: ' + address);
-    return null;
+
+    Logger.log('WARNING: Could not geocode address: ' + address + '. Using fallback coordinates if available.');
+    return fallbackCoords;
   } catch (error) {
     Logger.log('ERROR geocoding address "' + address + '": ' + error.toString());
-    return null;
+    Logger.log('Using fallback coordinates if available.');
+    return fallbackCoords;
   }
 }
 

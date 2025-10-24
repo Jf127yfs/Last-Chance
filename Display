@@ -415,6 +415,12 @@
       showControls: localStorage.getItem('showControls') === 'true'
     };
 
+    function updateTransitionDuration() {
+      config.transitionDuration = config.transitionStyle === 'instant' ? 0 : 1000;
+    }
+
+    updateTransitionDuration();
+
     // Load saved durations
     config.stages.forEach(stage => {
       const saved = localStorage.getItem(`duration-${stage.name}`);
@@ -424,11 +430,15 @@
     // State
     let currentStageIndex = 0;
     let stageTimer = null;
-    let progressTimer = null;
     let iframes = {};
     let isPaused = false;
     let remainingTime = 0;
-    let pauseStartTime = 0;
+    const progressState = {
+      totalDuration: 0,
+      elapsedMs: 0,
+      rafId: null
+    };
+    const getNow = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 
     // Initialize
     function init() {
@@ -457,6 +467,13 @@
       startShowcase();
     }
 
+    function applyTransitionStyle(frame) {
+      if (!frame) return;
+      frame.style.transition = config.transitionStyle === 'instant'
+        ? 'opacity 0s linear'
+        : 'opacity 1s ease-in-out';
+    }
+
     // Create all iframes upfront
     function createIframes() {
       const container = document.getElementById('stage-container');
@@ -466,6 +483,8 @@
         const iframe = document.createElement('iframe');
         iframe.id = `frame-${stage.name}`;
         iframe.className = 'stage-frame';
+
+        applyTransitionStyle(iframe);
 
         // Use local files or deployment URL
         if (config.useLocalFiles) {
@@ -500,14 +519,31 @@
 
     // Show a specific stage
     function showStage(index) {
-      currentStageIndex = index;
-      const stage = config.stages[index];
-      
-      console.log(`Showing stage: ${stage.name} for ${stage.duration}s`);
-      
+      if (!config.stages || config.stages.length === 0) {
+        console.error('❌ No stages configured for the display carousel.');
+        return;
+      }
+
+      const normalizedIndex = ((index % config.stages.length) + config.stages.length) % config.stages.length;
+      currentStageIndex = normalizedIndex;
+      const stage = config.stages[normalizedIndex];
+
+      if (!stage) {
+        console.error('❌ Invalid stage definition at index', normalizedIndex);
+        return;
+      }
+
+      const stageDuration = Math.max(Number(stage.duration) || 0, 0);
+
+      if (stage.duration !== stageDuration) {
+        stage.duration = stageDuration;
+      }
+
+      console.log(`Showing stage: ${stage.name} for ${stageDuration}s`);
+
       // Update indicator
-      document.getElementById('current-stage').textContent = 
-        `${stage.name.toUpperCase()} (${index + 1}/${config.stages.length})`;
+      document.getElementById('current-stage').textContent =
+        `${stage.name.toUpperCase()} (${normalizedIndex + 1}/${config.stages.length})`;
 
       // Transition iframes
       Object.values(iframes).forEach(iframe => {
@@ -516,9 +552,10 @@
 
       const currentFrame = iframes[stage.name];
       if (currentFrame) {
+        applyTransitionStyle(currentFrame);
+
         // Refresh iframe if option is enabled (AGGRESSIVE CACHE-BUSTING)
         if (config.refreshOnDisplay) {
-          const currentSrc = currentFrame.src.split('?')[0]; // Remove old timestamp
           const cacheBuster = `t=${Date.now()}&r=${Math.random().toString(36).substring(7)}`;
           if (config.useLocalFiles) {
             currentFrame.src = `${stage.file}?${cacheBuster}`;
@@ -527,73 +564,120 @@
           }
           console.log(`🔄 Refreshing ${stage.name} with fresh data: ${cacheBuster}`);
         }
+
         currentFrame.classList.add('active');
+      } else {
+        console.warn(`⚠️ Iframe not found for stage "${stage.name}"`);
       }
 
-      // Start progress bar
-      startProgress(stage.duration);
+      stopProgress();
+      startProgress(stageDuration);
+      remainingTime = progressState.totalDuration;
 
       // Schedule next stage
       clearTimeout(stageTimer);
       stageTimer = setTimeout(() => {
-        const nextIndex = (index + 1) % config.stages.length;
+        const nextIndex = (currentStageIndex + 1) % config.stages.length;
         transitionToStage(nextIndex);
-      }, stage.duration * 1000);
-
-      remainingTime = stage.duration * 1000;
+      }, stageDuration * 1000);
     }
 
     // Transition to next stage
     function transitionToStage(nextIndex) {
-      if (isPaused) return;
+      if (!config.stages || config.stages.length === 0) return;
+
+      if (isPaused) {
+        console.log('⏸️ Transition paused; will resume when playback continues.');
+        return;
+      }
+
+      stopProgress();
 
       const currentStage = config.stages[currentStageIndex];
-      const currentFrame = iframes[currentStage.name];
-      
+      const currentFrame = currentStage ? iframes[currentStage.name] : null;
+
       if (currentFrame) {
-        currentFrame.classList.add('exiting');
+        if (config.transitionStyle === 'instant') {
+          currentFrame.classList.remove('active', 'exiting');
+        } else {
+          currentFrame.classList.add('exiting');
+        }
       }
-      
+
+      const delay = config.transitionStyle === 'instant' ? 0 : config.transitionDuration;
+
       setTimeout(() => {
         showStage(nextIndex);
-      }, config.transitionDuration);
+      }, delay);
+    }
+
+    function stopProgress() {
+      if (progressState.rafId !== null) {
+        cancelAnimationFrame(progressState.rafId);
+        progressState.rafId = null;
+      }
+    }
+
+    function runProgress(elapsedBefore = 0) {
+      const progressFill = document.getElementById('progress-fill');
+      const total = progressState.totalDuration;
+
+      stopProgress();
+
+      if (total <= 0) {
+        progressState.elapsedMs = 0;
+        remainingTime = 0;
+        progressFill.style.width = '100%';
+        return;
+      }
+
+      progressState.elapsedMs = Math.min(elapsedBefore, total);
+      const initialPercent = Math.min((progressState.elapsedMs / total) * 100, 100);
+      progressFill.style.width = initialPercent + '%';
+
+      const startTimestamp = getNow() - progressState.elapsedMs;
+
+      const step = () => {
+        const elapsed = Math.max(getNow() - startTimestamp, 0);
+        progressState.elapsedMs = Math.min(elapsed, total);
+        const percentage = Math.min((elapsed / total) * 100, 100);
+        progressFill.style.width = percentage + '%';
+        remainingTime = Math.max(total - elapsed, 0);
+
+        if (percentage < 100) {
+          progressState.rafId = requestAnimationFrame(step);
+        } else {
+          progressState.rafId = null;
+        }
+      };
+
+      progressState.rafId = requestAnimationFrame(step);
     }
 
     // Progress bar animation
     function startProgress(duration) {
-      const progressFill = document.getElementById('progress-fill');
-      progressFill.style.width = '0%';
-      
-      clearInterval(progressTimer);
-      
-      const startTime = Date.now();
-      const endTime = startTime + (duration * 1000);
-      
-      progressTimer = setInterval(() => {
-        if (isPaused) return;
+      progressState.totalDuration = Math.max(duration * 1000, 0);
+      runProgress(0);
+    }
 
-        const now = Date.now();
-        const elapsed = now - startTime;
-        const total = endTime - startTime;
-        const percentage = Math.min((elapsed / total) * 100, 100);
-        
-        progressFill.style.width = percentage + '%';
-        
-        if (percentage >= 100) {
-          clearInterval(progressTimer);
-        }
-      }, 50);
+    function resumeProgress() {
+      if (progressState.totalDuration <= 0) return;
+      runProgress(progressState.elapsedMs);
     }
 
     // Manual controls
     function skipToNext() {
+      if (!config.stages || config.stages.length === 0) return;
       clearTimeout(stageTimer);
+      stopProgress();
       const nextIndex = (currentStageIndex + 1) % config.stages.length;
       transitionToStage(nextIndex);
     }
 
     function skipToPrev() {
+      if (!config.stages || config.stages.length === 0) return;
       clearTimeout(stageTimer);
+      stopProgress();
       const prevIndex = (currentStageIndex - 1 + config.stages.length) % config.stages.length;
       transitionToStage(prevIndex);
     }
@@ -602,17 +686,24 @@
       isPaused = !isPaused;
       if (isPaused) {
         clearTimeout(stageTimer);
-        clearInterval(progressTimer);
-        pauseStartTime = Date.now();
+        stopProgress();
+        remainingTime = Math.max(progressState.totalDuration - progressState.elapsedMs, 0);
       } else {
         // Resume with remaining time
         const stage = config.stages[currentStageIndex];
+        if (!stage) return;
+
+        if (remainingTime <= 0) {
+          transitionToStage((currentStageIndex + 1) % config.stages.length);
+          return;
+        }
+
         stageTimer = setTimeout(() => {
           const nextIndex = (currentStageIndex + 1) % config.stages.length;
           transitionToStage(nextIndex);
         }, remainingTime);
-        
-        startProgress(remainingTime / 1000);
+
+        resumeProgress();
       }
     }
 
@@ -660,6 +751,8 @@
       // Save transition style
       config.transitionStyle = document.getElementById('transition-style').value;
       localStorage.setItem('transitionStyle', config.transitionStyle);
+      updateTransitionDuration();
+      Object.values(iframes).forEach(applyTransitionStyle);
 
       // Save show controls
       config.showControls = document.getElementById('show-controls').checked;
