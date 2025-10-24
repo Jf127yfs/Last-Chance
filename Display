@@ -711,8 +711,33 @@
         }
       });
 
+      // Close settings panel
       closeSettings();
-      location.reload();
+
+      // Instead of reloading the page (which can cause white screen on Apps Script),
+      // manually restart the carousel with new settings
+      console.log('⚙️ Settings saved. Restarting carousel...');
+
+      // Show brief confirmation message
+      const loadingMsg = document.getElementById('loading-msg');
+      loadingMsg.innerHTML = '<div style="font-size: 36px; margin-bottom: 15px;">✅</div><div style="font-size: 18px;">Settings Saved!</div><div style="font-size: 14px; margin-top: 10px; color: #999;">Restarting carousel...</div>';
+      loadingMsg.classList.remove('hidden');
+
+      setTimeout(() => {
+        loadingMsg.classList.add('hidden');
+        // Restore original loading message content
+        loadingMsg.innerHTML = '<div>⚙️ Setting up display...</div><div style="font-size: 14px; margin-top: 10px; color: #999;">Loading carousel pages...</div>';
+
+        // Clear existing timers
+        clearTimeout(stageTimer);
+        clearInterval(progressTimer);
+
+        // Recreate iframes with new settings
+        createIframes();
+
+        // Restart the showcase
+        startShowcase();
+      }, 1500);
     }
 
     // Event listeners
