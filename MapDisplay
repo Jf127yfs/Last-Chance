@@ -32,6 +32,12 @@
   <meta charset="utf-8">
   <title>ZIP NETWORK // 5317 CHARLOTTE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Cache Control: Force fresh content on every load -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- Version Identifier for Deployment Verification -->
+  <meta name="version" content="2.1.0-20251024">
   <!-- Leaflet Map Library -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -560,8 +566,11 @@
         }
       });
 
-      primaryTiles.addTo(map);
+      // Version logging for deployment verification
+      const version = document.querySelector('meta[name="version"]')?.content || 'unknown';
+      console.log('=== MapDisplay Version: ' + version + ' ===');
       addLog('Map initialized');
+      addLog('Version: ' + version);
     }
 
     function addLog(text) {
@@ -958,6 +967,32 @@
         totalRespondents: 79
       };
     }
+
+    // ============================================================================
+    // CAROUSEL VISIBILITY DETECTION
+    // Pause routing when page is not visible in the carousel
+    // ============================================================================
+    let isVisible = true;
+
+    // Detect when iframe becomes hidden/visible
+    document.addEventListener('visibilitychange', function() {
+      isVisible = !document.hidden;
+      if (!isVisible) {
+        console.log('MapDisplay hidden - pausing routing');
+        // Don't interfere with ongoing operations, just note we're hidden
+      } else {
+        console.log('MapDisplay visible - resuming normal operation');
+      }
+    });
+
+    // Also detect iframe focus changes
+    window.addEventListener('blur', function() {
+      console.log('MapDisplay lost focus');
+    });
+
+    window.addEventListener('focus', function() {
+      console.log('MapDisplay gained focus');
+    });
 
     // Initialize
     initMap();

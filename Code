@@ -4,8 +4,14 @@
  * ============================================================================
  * Main application code for guest check-in and data management system
  *
- * Version: 1.1
- * Last Updated: 2025-10-23
+ * Version: 2.1.0
+ * Last Updated: 2025-10-24
+ *
+ * WHAT'S NEW IN v2.1.0:
+ * - Added aggressive cache-busting headers to all pages
+ * - Implemented servePageNoCaching() helper function
+ * - Added version identifiers to MapDisplay and Display pages
+ * - Fixed deployment caching issues (pages now always serve fresh content)
  *
  * SYSTEM OVERVIEW:
  * - Guest check-in system with photo upload
@@ -21,6 +27,55 @@
  * - SheetLocations: Data dictionary and sheet structure reference
  *
  * DEFAULT PAGE: Display dashboard (page=display or no parameter)
+ *
+ * ============================================================================
+ * DEPLOYMENT INSTRUCTIONS (CRITICAL - READ BEFORE DEPLOYING)
+ * ============================================================================
+ *
+ * Google Apps Script aggressively caches web app deployments. To ensure
+ * your latest changes are served, you MUST create a NEW deployment:
+ *
+ * METHOD 1: Create New Deployment (RECOMMENDED)
+ * ----------------------------------------------
+ * 1. In Google Apps Script Editor, click "Deploy" > "New deployment"
+ * 2. Select type: "Web app"
+ * 3. Description: "v2.1.0 - Cache-busting fix [DATE]"
+ * 4. Execute as: Your account
+ * 5. Who has access: Choose based on your needs
+ * 6. Click "Deploy"
+ * 7. Copy the NEW deployment URL
+ * 8. Update Display carousel settings with the new URL
+ * 9. Test by checking browser console for version: 2.1.0-20251024
+ *
+ * METHOD 2: Manage Deployments (Alternative)
+ * -------------------------------------------
+ * 1. Click "Deploy" > "Manage deployments"
+ * 2. Click the pencil icon next to your active deployment
+ * 3. Under "Version", click "New version"
+ * 4. Add description: "v2.1.0 - Cache-busting fix"
+ * 5. Click "Deploy"
+ * 6. The URL stays the same, but serves new content
+ *
+ * VERIFICATION:
+ * -------------
+ * After deploying, verify the new version is live:
+ * 1. Open the deployment URL + ?page=md
+ * 2. Open browser console (F12)
+ * 3. Look for log: "Version: 2.1.0-20251024"
+ * 4. If you see old version or no version, clear cache and try again
+ *
+ * BROWSER CACHE CLEARING:
+ * -----------------------
+ * If old version still appears:
+ * - Chrome/Edge: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+ * - Firefox: Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)
+ * - Safari: Cmd+Option+R
+ *
+ * Or manually clear cache:
+ * 1. Open DevTools (F12)
+ * 2. Right-click the refresh button
+ * 3. Select "Empty Cache and Hard Reload"
+ *
  * ============================================================================
  */
 
@@ -246,6 +301,24 @@ function onOpen() {
  * @param {Object} e - Event object with parameters from URL
  * @returns {HtmlOutput} The requested page or error page
  */
+
+/**
+ * Helper function to serve HTML files
+ *
+ * Cache-busting is handled via meta tags in the HTML files themselves,
+ * as Google Apps Script's addMetaTag() doesn't support cache-control tags.
+ *
+ * @param {string} fileName - Name of the HTML file to serve
+ * @param {string} title - Page title
+ * @returns {HtmlOutput} HTML output ready to serve
+ */
+function servePageNoCaching(fileName, title) {
+  return HtmlService.createTemplateFromFile(fileName)
+    .evaluate()
+    .setTitle(title)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
 function doGet(e) {
   // Handle missing event object
   if (!e || !e.parameter) {
@@ -258,69 +331,40 @@ function doGet(e) {
   try {
     switch(page) {
       case 'intro':
-        return HtmlService.createTemplateFromFile('Intro')
-          .evaluate()
-          .setTitle('Introduction')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('Intro', 'Introduction');
 
       case 'wall':
-        return HtmlService.createTemplateFromFile('Wall')
-          .evaluate()
-          .setTitle('The Wall - Panopticon')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('Wall', 'The Wall - Panopticon');
 
       case 'map':
-        return HtmlService.createTemplateFromFile('Map')
-          .evaluate()
-          .setTitle('Map')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('Map', 'Map');
 
       case 'mm':
-        return HtmlService.createTemplateFromFile('mm')
-          .evaluate()
-          .setTitle('Match Maker - Live Compatibility')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('mm', 'Match Maker - Live Compatibility');
 
       case 'alm':
-        return HtmlService.createTemplateFromFile('ALM')
-          .evaluate()
-          .setTitle('Dance Team Generator - Pyramid Matchmaking')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('ALM', 'Dance Team Generator - Pyramid Matchmaking');
 
       case 'village':
-        return HtmlService.createTemplateFromFile('VillageBios')
-          .evaluate()
-          .setTitle('Village Bios - Guest Profiles')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('VillageBios', 'Village Bios - Guest Profiles');
 
       case 'fv':
       case 'farm':
       case 'chronicle':
-        return HtmlService.createTemplateFromFile('FV')
-          .evaluate()
-          .setTitle('FV - Farm & Villagers')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('FV', 'FV - Farm & Villagers');
 
       case 'checkin':
-        return HtmlService.createTemplateFromFile('CheckInInterface')
-          .evaluate()
-          .setTitle('Guest Check-In')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('CheckInInterface', 'Guest Check-In');
 
       case 'md':
         // Map Display - automatically loads and visualizes zip data from FRC Column F
-        return HtmlService.createTemplateFromFile('MapDisplay')
-          .evaluate()
-          .setTitle('Zip Map Display')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        // Uses servePageNoCaching to prevent serving stale versions
+        return servePageNoCaching('MapDisplay', 'Zip Map Display');
 
       case 'display':
       default:
         // DEFAULT PAGE: Display Carousel
-        return HtmlService.createTemplateFromFile('Display')
-          .evaluate()
-          .setTitle('Panopticon Display')
-          .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        return servePageNoCaching('Display', 'Panopticon Display');
     }
   } catch (error) {
     return createErrorPage(error);

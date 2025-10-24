@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panopticon Display</title>
+  <!-- Cache Control: Force fresh content -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- Version Identifier -->
+  <meta name="version" content="2.1.0-20251024">
   <style>
     * {
       margin: 0;
@@ -322,7 +328,7 @@
             <input type="number" id="duration-Intro" value="30" min="5" max="1200">
           </div>
           <div class="duration-item">
-            <label>MapDisplay:</label>
+            <label>MapDisplay (includes routing animation):</label>
             <input type="number" id="duration-MapDisplay" value="120" min="10" max="1200">
           </div>
           <div class="duration-item">
@@ -357,6 +363,10 @@
           <input type="checkbox" id="refresh-on-display" style="width: auto; margin-right: 10px;" checked>
           Refresh pages on each display (ensures latest data)
         </label>
+        <div style="font-size: 11px; color: #666; margin-top: 5px; margin-left: 30px;">
+          ✅ RECOMMENDED: Enabled - Forces fresh Google Script calls to load new guest data each rotation.
+          Uses aggressive cache-busting to avoid stale data.
+        </div>
       </div>
 
       <div class="setting-group">
@@ -422,7 +432,9 @@
 
     // Initialize
     function init() {
+      const version = document.querySelector('meta[name="version"]')?.content || 'unknown';
       console.log('🚀 Initializing Display Carousel...');
+      console.log('Version:', version);
       console.log('Environment:', inAppsScriptEnv ? 'Apps Script' : 'Local');
       console.log('Use Local Files:', config.useLocalFiles);
       console.log('Deployment URL:', config.deploymentUrl);
@@ -504,14 +516,16 @@
 
       const currentFrame = iframes[stage.name];
       if (currentFrame) {
-        // Refresh iframe if option is enabled
+        // Refresh iframe if option is enabled (AGGRESSIVE CACHE-BUSTING)
         if (config.refreshOnDisplay) {
           const currentSrc = currentFrame.src.split('?')[0]; // Remove old timestamp
+          const cacheBuster = `t=${Date.now()}&r=${Math.random().toString(36).substring(7)}`;
           if (config.useLocalFiles) {
-            currentFrame.src = `${stage.file}?t=${Date.now()}`;
+            currentFrame.src = `${stage.file}?${cacheBuster}`;
           } else {
-            currentFrame.src = `${config.deploymentUrl}?page=${stage.page || stage.name.toLowerCase()}&t=${Date.now()}`;
+            currentFrame.src = `${config.deploymentUrl}?page=${stage.page || stage.name.toLowerCase()}&${cacheBuster}`;
           }
+          console.log(`🔄 Refreshing ${stage.name} with fresh data: ${cacheBuster}`);
         }
         currentFrame.classList.add('active');
       }
