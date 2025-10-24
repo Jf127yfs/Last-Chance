@@ -42,89 +42,70 @@ function getCompatibilityMatches() {
       };
     }
 
-    // Load FRC sheet for checked-in guest data
-    const frcSheet = ss.getSheetByName('FRC');
-    if (!frcSheet) {
-      Logger.log('❌ FRC sheet not found');
+    // Load checked-in guests using shared helper for consistency
+    let guests;
+    try {
+      guests = getCheckedInGuests();
+    } catch (error) {
+      Logger.log('❌ Failed to load checked-in guests: ' + error.message);
       return {
         matches: [],
         totalGuests: 0,
-        error: 'FRC sheet not found'
+        error: error.message
       };
     }
-
-    // Get FRC data
-    const frcData = frcSheet.getDataRange().getValues();
 
     // Build map of checked-in guests with their data
     // KEY CHANGE: Use UID as the key (not Screen Name) because Screen Names can change in FRC
     const checkedInGuests = {};
     const uidOccurrences = {}; // Track duplicate UIDs
-    let totalRows = 0;
-    let checkedInCount = 0;
     let skippedNoName = 0;
     let skippedNoUID = 0;
 
-    Logger.log('🔍 Scanning FRC sheet for checked-in guests...');
+    Logger.log('🔍 Processing checked-in guests from helper...');
 
-    for (let i = 1; i < frcData.length; i++) {
-      const row = frcData[i];
-      totalRows++;
+    guests.forEach(guest => {
+      const screenName = String(guest.screenName || '').trim();
+      const uid = String(guest.uid || '').trim();
 
-      const checkedInRaw = row[CONFIG.COL.CHECKED_IN] || '';
-      const checkedIn = String(checkedInRaw).trim().toUpperCase();
-
-      // Log first 5 rows to help debug
-      if (i <= 5) {
-        Logger.log('Row ' + (i + 1) + ' - Checked-In value: "' + checkedInRaw + '" → "' + checkedIn + '"');
+      if (!screenName) {
+        skippedNoName++;
+        Logger.log('⚠️ Checked-in guest missing Screen Name (row ' + (guest.rowIndex + 1) + ')');
+        return;
       }
 
-      if (checkedIn === 'Y') {
-        checkedInCount++;
-        const screenName = String(row[CONFIG.COL.SCREEN_NAME] || '').trim();
-        const uid = String(row[CONFIG.COL.UID] || '').trim();
-
-        if (!screenName) {
-          skippedNoName++;
-          Logger.log('⚠️ Row ' + (i + 1) + ' has Checked-In=Y but missing Screen Name');
-        }
-        if (!uid) {
-          skippedNoUID++;
-          Logger.log('⚠️ Row ' + (i + 1) + ' has Checked-In=Y but missing UID');
-        }
-
-        if (screenName && uid) {
-          // Track duplicate UIDs
-          if (checkedInGuests[uid]) {
-            if (!uidOccurrences[uid]) {
-              uidOccurrences[uid] = [checkedInGuests[uid].screenName];
-            }
-            uidOccurrences[uid].push(screenName);
-            Logger.log('⚠️ DUPLICATE UID "' + uid + '" - previous: "' + checkedInGuests[uid].screenName + '", new: "' + screenName + '" (row ' + (i + 1) + ')');
-          }
-
-          // Use UID as key (stable identifier) - last occurrence wins
-          checkedInGuests[uid] = {
-            screenName: screenName,
-            uid: uid,
-            rowIndex: i + 1,
-            zodiac: String(row[CONFIG.COL.ZODIAC] || '---').trim(),
-            music: String(row[CONFIG.COL.MUSIC] || '---').trim(),
-            photoUrl: convertDriveUrlToDirectLink(String(row[CONFIG.COL.PHOTO_URL] || '').trim()),
-            interests: [
-              String(row[CONFIG.COL.INTEREST_1] || '').trim(),
-              String(row[CONFIG.COL.INTEREST_2] || '').trim(),
-              String(row[CONFIG.COL.INTEREST_3] || '').trim()
-            ].filter(i => i !== '')
-          };
-        }
+      if (!uid) {
+        skippedNoUID++;
+        Logger.log('⚠️ Checked-in guest "' + screenName + '" missing UID (row ' + (guest.rowIndex + 1) + ')');
+        return;
       }
-    }
+
+      if (checkedInGuests[uid]) {
+        if (!uidOccurrences[uid]) {
+          uidOccurrences[uid] = [checkedInGuests[uid].screenName];
+        }
+        uidOccurrences[uid].push(screenName);
+        Logger.log('⚠️ DUPLICATE UID "' + uid + '" - previous: "' + checkedInGuests[uid].screenName + '", new: "' + screenName + '" (row ' + (guest.rowIndex + 1) + ')');
+      }
+
+      checkedInGuests[uid] = {
+        screenName: screenName,
+        uid: uid,
+        rowIndex: guest.rowIndex + 1,
+        zodiac: String(guest.zodiac || '---').trim(),
+        music: String(guest.music || '---').trim(),
+        photoUrl: convertDriveUrlToDirectLink(String(guest.photoUrl || '').trim()),
+        interests: [
+          String(guest.interest1 || '').trim(),
+          String(guest.interest2 || '').trim(),
+          String(guest.interest3 || '').trim()
+        ].filter(i => i !== '')
+      };
+    });
 
     const checkedInUIDs = Object.keys(checkedInGuests);
     Logger.log('📊 SCAN RESULTS:');
-    Logger.log('   Total rows scanned: ' + totalRows);
-    Logger.log('   Rows with Checked-In=Y: ' + checkedInCount);
+    Logger.log('   Checked-in guests returned: ' + guests.length);
     Logger.log('   Skipped (no Screen Name): ' + skippedNoName);
     Logger.log('   Skipped (no UID): ' + skippedNoUID);
     Logger.log('✅ Valid checked-in guests: ' + checkedInUIDs.length);
@@ -431,40 +412,61 @@ function convertDriveUrlToDirectLink(driveUrl) {
  */
 function getLiveAnalytics() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const frcSheet = ss.getSheetByName('FRC');
-    
-    if (!frcSheet) {
-      return { error: 'FRC sheet not found' };
+    let rawGuests;
+    try {
+      rawGuests = getCheckedInGuests();
+    } catch (error) {
+      return { error: error.message };
     }
 
-    // Get checked-in guests data
-    const frcData = frcSheet.getDataRange().getValues();
-    const checkedInGuests = [];
-    
-    for (let i = 1; i < frcData.length; i++) {
-      const row = frcData[i];
-      if (String(row[CONFIG.COL.CHECKED_IN] || '').trim().toUpperCase() === 'Y') {
-        checkedInGuests.push({
-          screenName: String(row[CONFIG.COL.SCREEN_NAME] || '').trim(),
-          uid: String(row[CONFIG.COL.UID] || '').trim(),
-          zodiac: String(row[CONFIG.COL.ZODIAC] || '').trim(),
-          ageRange: String(row[CONFIG.COL.AGE] || '').trim(),
-          education: String(row[CONFIG.COL.EDU] || '').trim(),
-          industry: String(row[CONFIG.COL.INDUSTRY] || '').trim(),
-          music: String(row[CONFIG.COL.MUSIC] || '').trim(),
-          recentPurchase: String(row[CONFIG.COL.RECENT_PURCHASE] || '').trim(),
-          socialStance: String(row[CONFIG.COL.SOCIAL_STANCE] || '').trim(),
-          photoUrl: String(row[CONFIG.COL.PHOTO_URL] || '').trim(),
-          checkinTime: row[CONFIG.COL.CHECKIN_TIME] ? new Date(row[CONFIG.COL.CHECKIN_TIME]).getTime() : null,
-          interests: [
-            String(row[CONFIG.COL.INTEREST_1] || '').trim(),
-            String(row[CONFIG.COL.INTEREST_2] || '').trim(),
-            String(row[CONFIG.COL.INTEREST_3] || '').trim()
-          ].filter(i => i !== '')
-        });
+    let skippedInvalid = 0;
+    const toTimestamp = value => {
+      if (!value) return null;
+      if (value instanceof Date) {
+        return value.getTime();
       }
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? null : parsed.getTime();
+    };
+
+    const checkedInGuests = rawGuests.reduce((acc, guest) => {
+      const screenName = String(guest.screenName || '').trim();
+      const uid = String(guest.uid || '').trim();
+
+      if (!screenName || !uid) {
+        skippedInvalid++;
+        return acc;
+      }
+
+      acc.push({
+        screenName: screenName,
+        uid: uid,
+        zodiac: String(guest.zodiac || '').trim(),
+        ageRange: String(guest.age || '').trim(),
+        education: String(guest.education || '').trim(),
+        industry: String(guest.industry || '').trim(),
+        music: String(guest.music || '').trim(),
+        recentPurchase: String(guest.recentPurchase || '').trim(),
+        socialStance: String(guest.socialStance || '').trim(),
+        photoUrl: convertDriveUrlToDirectLink(String(guest.photoUrl || '').trim()),
+        checkinTime: toTimestamp(guest.checkInTime),
+        interests: [
+          String(guest.interest1 || '').trim(),
+          String(guest.interest2 || '').trim(),
+          String(guest.interest3 || '').trim()
+        ].filter(i => i !== '')
+      });
+
+      return acc;
+    }, []);
+
+    Logger.log('📊 Raw checked-in guests received: ' + rawGuests.length);
+
+    if (skippedInvalid > 0) {
+      Logger.log('⚠️ Skipped ' + skippedInvalid + ' checked-in guests missing UID or Screen Name when building analytics');
     }
+
+    Logger.log('✅ Prepared ' + checkedInGuests.length + ' checked-in guests for live analytics');
 
     if (checkedInGuests.length < 6) {
       return {
