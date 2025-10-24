@@ -1,4 +1,36 @@
 <!DOCTYPE html>
+<!--
+  ============================================================================
+  PANOPTICON DISPLAY CAROUSEL
+  ============================================================================
+
+  DEPLOYMENT RECOMMENDATION:
+  -------------------------
+  This Display page should be served LOCALLY (not from Google Apps Script).
+
+  WHY?
+  ----
+  Google Apps Script has restrictions when trying to embed its own pages
+  in iframes from the same deployment. This causes white/blank pages.
+
+  RECOMMENDED SETUP:
+  ------------------
+  1. Host THIS file (Display.html) locally or on GitHub Pages/Netlify
+  2. Deploy the individual pages (Intro, MapDisplay, mm, etc.) to Google Apps Script
+  3. In Display settings (gear icon):
+     - UNCHECK "Use Local HTML Files"
+     - ENTER your Google Apps Script deployment URL
+     - The Display will load individual pages from Apps Script via iframes ✅
+
+  ALTERNATIVE (If you must deploy Display to Apps Script):
+  --------------------------------------------------------
+  - CHECK "Use Local HTML Files" in Display settings
+  - This makes Display load pages from local files instead of deployment URL
+  - NOTE: This won't show live data unless you're running a local server
+
+  Version: 2.1.0-20251024
+  ============================================================================
+-->
 <html>
 <head>
   <meta charset="UTF-8">
@@ -466,6 +498,10 @@
         const iframe = document.createElement('iframe');
         iframe.id = `frame-${stage.name}`;
         iframe.className = 'stage-frame';
+
+        // Set iframe attributes for Google Apps Script compatibility
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('scrolling', 'no');
 
         // Use local files or deployment URL
         if (config.useLocalFiles) {
