@@ -1114,13 +1114,47 @@
             return {success:true, villagers:names.map((n,i)=>({screenName:n,ddd:Math.floor(Math.random()*11)}))};
         }
 
+        function getLocationByOccupation(industry, role) {
+            const ind = (industry || '').toLowerCase();
+            const r = (role || '').toLowerCase();
+
+            // Healthcare → Hospital
+            if (ind.includes('health') || ind.includes('medical') || ind.includes('pharma') ||
+                r.includes('nurse') || r.includes('doctor') || r.includes('therapist')) {
+                return 'HOSPITAL';
+            }
+
+            // Tech, Education, Research → Library
+            if (ind.includes('tech') || ind.includes('software') || ind.includes('education') ||
+                ind.includes('research') || ind.includes('academic') ||
+                r.includes('engineer') || r.includes('teacher') || r.includes('professor')) {
+                return 'LIBRARY';
+            }
+
+            // Agriculture, Food, Environment → Farm
+            if (ind.includes('agricult') || ind.includes('food') || ind.includes('farm') ||
+                ind.includes('environment') || r.includes('farmer') || r.includes('chef')) {
+                return 'FARM';
+            }
+
+            // Hospitality, Service, Entertainment → Inn
+            if (ind.includes('hospital') || ind.includes('service') || ind.includes('entertainment') ||
+                ind.includes('tourism') || r.includes('server') || r.includes('host')) {
+                return 'INN';
+            }
+
+            // Default → Town Square
+            return 'TOWN_SQUARE';
+        }
+
         function onLoad(data) {
             if (!data.success) return;
             const existing = new Set(villagers.map(v=>v.screenName));
             (data.villagers||[]).forEach(vd => {
                 if (existing.has(vd.screenName)) return;
                 const isWitch = vd.ddd >= 5;
-                const locKey = isWitch ? 'WITCHES_WOODS' : Object.keys(LOCATIONS).filter(k=>k!=='WITCHES_WOODS')[Math.floor(Math.random()*5)];
+                // Assign location based on occupation/industry
+                const locKey = isWitch ? 'WITCHES_WOODS' : getLocationByOccupation(vd.industry, vd.role);
                 const loc = LOCATIONS[locKey];
                 const v = {
                     id: `V_${vd.screenName}_${Date.now()}`,
@@ -1161,7 +1195,16 @@
                 };
                 villagers.push(v);
                 createVillager(v);
-                log(`✨ @${v.screenName} arrived in the village`);
+
+                // Welcome announcement with occupation/location context
+                if (v.isWitch) {
+                    log(`🔮 @${v.screenName} has been exiled to the Witches' Woods (${v.ddd} DDD violations)`, true);
+                } else if (v.industry) {
+                    const locName = LOCATIONS[v.location].name;
+                    log(`✨ @${v.screenName} (${v.industry}) arrived at the ${locName}`);
+                } else {
+                    log(`✨ @${v.screenName} arrived in the village`);
+                }
             });
             updateStats();
             checkCurse();
@@ -1278,8 +1321,8 @@ UID: ${v.uid}
                         v.velocity.y = (loc.y - v.position.y) * 0.02;
                     }
                     
-                    // Random direction changes and location moves
-                    if (Math.random()<0.02) {
+                    // More frequent movement and location changes for 2-minute viewing
+                    if (Math.random()<0.03) {
                         // Witches can leave the woods (15% chance when moving) - this causes major events!
                         if (v.isWitch && v.location === 'WITCHES_WOODS' && Math.random()<0.15) {
                             const keys = Object.keys(LOCATIONS).filter(k=>k!=='WITCHES_WOODS');
@@ -1294,8 +1337,8 @@ UID: ${v.uid}
                             v.location = 'WITCHES_WOODS';
                             log(`🌲 @${v.screenName} retreated back to the Witches' Woods`, true);
                         }
-                        // Normal villagers move between locations
-                        else if (!v.isWitch && Math.random()<0.08) {
+                        // Normal villagers move between locations more often
+                        else if (!v.isWitch && Math.random()<0.12) {
                             const keys = Object.keys(LOCATIONS).filter(k=>k!=='WITCHES_WOODS');
                             const newLoc = keys[Math.floor(Math.random()*keys.length)];
                             v.location = newLoc;
@@ -1315,16 +1358,18 @@ UID: ${v.uid}
                 });
             }, 50);
 
+            // More frequent events for 2-minute viewing experience
             setInterval(() => {
                 if (!running) return;
                 genEvent();
-            }, 5000);
+            }, 3000);
         }
 
         function genEvent() {
             const witches = villagers.filter(v=>v.isWitch);
             const normal = villagers.filter(v=>!v.isWitch);
 
+            // Witch events
             if (witches.length >= 3 && Math.random()<0.2) {
                 const msgs = [
                     `Three witches have gathered in the Woods! Strange omens plague the village...`,
@@ -1336,18 +1381,202 @@ UID: ${v.uid}
             } else if (witches.length>0 && Math.random()<0.12) {
                 const w = witches[Math.floor(Math.random()*witches.length)];
                 log(`🌲 @${w.screenName} heard whispers in the Woods`, true);
-            } else if (normal.length>=2) {
-                const v1 = normal[Math.floor(Math.random()*normal.length)];
-                const v2 = normal[Math.floor(Math.random()*normal.length)];
-                if (v1.id === v2.id) return;
-                const events = [
-                    `👋 @${v1.screenName} said hi to @${v2.screenName}`,
-                    `💬 @${v1.screenName} and @${v2.screenName} chatted`,
-                    `🤝 @${v1.screenName} traded with @${v2.screenName}`
-                ];
-                log(events[Math.floor(Math.random()*events.length)]);
             }
+
+            // ENCOUNTER-BASED EVENTS - find villagers near each other
+            if (normal.length >= 2) {
+                for (let i = 0; i < normal.length - 1; i++) {
+                    for (let j = i + 1; j < normal.length; j++) {
+                        const v1 = normal[i];
+                        const v2 = normal[j];
+
+                        // Calculate distance
+                        const dist = Math.sqrt(
+                            Math.pow(v1.position.x - v2.position.x, 2) +
+                            Math.pow(v1.position.y - v2.position.y, 2)
+                        );
+
+                        // If close enough (within 4%), trigger encounter event
+                        if (dist < 4 && Math.random() < 0.15) {
+                            generateEncounterEvent(v1, v2);
+                            return; // Only one event per cycle
+                        }
+                    }
+                }
+            }
+
+            // Solo activities if no encounters
+            if (normal.length > 0 && Math.random() < 0.3) {
+                generateSoloEvent(normal[Math.floor(Math.random() * normal.length)]);
+            }
+
             checkCurse();
+        }
+
+        function generateEncounterEvent(v1, v2) {
+            const events = [];
+
+            // Shared interests
+            const sharedInterests = v1.interests.filter(i => v2.interests.includes(i));
+            if (sharedInterests.length > 0) {
+                events.push(`💬 @${v1.screenName} and @${v2.screenName} bonded over ${sharedInterests[0]}`);
+            }
+
+            // Shared music genre
+            if (v1.music && v2.music && v1.music === v2.music) {
+                events.push(`🎵 @${v1.screenName} and @${v2.screenName} discovered they both love ${v1.music} music`);
+            }
+
+            // Same artist
+            if (v1.artist && v2.artist && v1.artist === v2.artist) {
+                events.push(`🎤 @${v1.screenName} and @${v2.screenName} are both fans of ${v1.artist}!`);
+            }
+
+            // Same industry - networking
+            if (v1.industry && v2.industry && v1.industry === v2.industry) {
+                events.push(`💼 @${v1.screenName} and @${v2.screenName} talked shop about ${v1.industry}`);
+            }
+
+            // Same zodiac
+            if (v1.zodiac && v2.zodiac && v1.zodiac === v2.zodiac) {
+                events.push(`${getZodiacEmoji(v1.zodiac)} @${v1.screenName} and @${v2.screenName} compared ${v1.zodiac} horoscopes`);
+            }
+
+            // Zodiac compatibility (fire+air, earth+water)
+            if (v1.zodiac && v2.zodiac && areCompatibleZodiacs(v1.zodiac, v2.zodiac)) {
+                events.push(`✨ ${getZodiacEmoji(v1.zodiac)}${getZodiacEmoji(v2.zodiac)} @${v1.screenName} and @${v2.screenName} have great cosmic chemistry!`);
+            }
+
+            // Same location = location-specific activity
+            if (v1.location === v2.location) {
+                const locEvents = getLocationEvents(v1, v2, v1.location);
+                events.push(...locEvents);
+            }
+
+            // Social stance interactions
+            if (v1.socialStance >= 4 && v2.socialStance <= 2) {
+                events.push(`😊 Extrovert @${v1.screenName} tried to chat up introverted @${v2.screenName}`);
+            }
+
+            // Recent purchase show-off
+            if (v1.recentPurchase && Math.random() < 0.3) {
+                events.push(`🛍️ @${v1.screenName} showed off their ${v1.recentPurchase} to @${v2.screenName}`);
+            }
+
+            // Same age range
+            if (v1.age && v2.age && Math.abs(parseInt(v1.age) - parseInt(v2.age)) < 5) {
+                events.push(`👥 @${v1.screenName} and @${v2.screenName} connected over being the same age`);
+            }
+
+            // Both know hosts
+            if (v1.knowHosts && v2.knowHosts) {
+                events.push(`🎭 @${v1.screenName} and @${v2.screenName} shared stories about the hosts`);
+            }
+
+            // Default encounters
+            events.push(`👋 @${v1.screenName} waved at @${v2.screenName}`);
+            events.push(`💬 @${v1.screenName} and @${v2.screenName} had a chat`);
+            events.push(`🤝 @${v1.screenName} shook hands with @${v2.screenName}`);
+
+            // Log a random event from all possible ones
+            if (events.length > 0) {
+                log(events[Math.floor(Math.random() * events.length)]);
+            }
+        }
+
+        function getLocationEvents(v1, v2, location) {
+            const events = [];
+            const loc = LOCATIONS[location];
+
+            if (location === 'LIBRARY') {
+                events.push(`📚 @${v1.screenName} and @${v2.screenName} studied together at the Library`);
+                if (v1.education && v2.education) {
+                    events.push(`🎓 @${v1.screenName} and @${v2.screenName} discussed their education backgrounds`);
+                }
+            } else if (location === 'HOSPITAL') {
+                events.push(`🏥 @${v1.screenName} and @${v2.screenName} met in the Hospital waiting room`);
+                events.push(`💊 @${v1.screenName} and @${v2.screenName} discussed health and wellness`);
+            } else if (location === 'FARM') {
+                events.push(`🌾 @${v1.screenName} and @${v2.screenName} helped harvest crops together`);
+                events.push(`🐔 @${v1.screenName} and @${v2.screenName} fed the chickens at the Farm`);
+            } else if (location === 'INN') {
+                events.push(`🍺 @${v1.screenName} and @${v2.screenName} shared a drink at the Inn`);
+                if (v1.music && v2.music) {
+                    events.push(`🎶 @${v1.screenName} and @${v2.screenName} enjoyed live music at the Inn`);
+                }
+            } else if (location === 'TOWN_SQUARE') {
+                events.push(`🏛️ @${v1.screenName} and @${v2.screenName} met at the Town Square fountain`);
+                events.push(`🎪 @${v1.screenName} and @${v2.screenName} watched street performers together`);
+            }
+
+            return events;
+        }
+
+        function generateSoloEvent(v) {
+            const events = [];
+
+            // Interest-based solo activities
+            if (v.interests && v.interests.length > 0) {
+                const interest = v.interests[Math.floor(Math.random() * v.interests.length)];
+                events.push(`💭 @${v.screenName} thought about their interest in ${interest}`);
+                events.push(`📝 @${v.screenName} practiced ${interest}`);
+            }
+
+            // Music activities
+            if (v.music) {
+                events.push(`🎵 @${v.screenName} hummed some ${v.music} tunes`);
+            }
+            if (v.song) {
+                events.push(`🎶 @${v.screenName} sang "${v.song}"`);
+            }
+
+            // Location-based solo
+            const loc = LOCATIONS[v.location];
+            if (v.location === 'LIBRARY') {
+                events.push(`📖 @${v.screenName} browsed books at the Library`);
+            } else if (v.location === 'FARM') {
+                events.push(`🌻 @${v.screenName} admired the sunflowers`);
+            } else if (v.location === 'INN') {
+                events.push(`☕ @${v.screenName} enjoyed a quiet moment at the Inn`);
+            } else if (v.location === 'HOSPITAL') {
+                events.push(`💭 @${v.screenName} reflected on life and health`);
+            } else if (v.location === 'TOWN_SQUARE') {
+                events.push(`⛲ @${v.screenName} tossed a coin in the fountain`);
+            }
+
+            // Zodiac-based
+            if (v.zodiac) {
+                events.push(`${getZodiacEmoji(v.zodiac)} @${v.screenName} checked their ${v.zodiac} horoscope`);
+            }
+
+            // Recent purchase
+            if (v.recentPurchase) {
+                events.push(`✨ @${v.screenName} admired their new ${v.recentPurchase}`);
+            }
+
+            if (events.length > 0) {
+                log(events[Math.floor(Math.random() * events.length)]);
+            }
+        }
+
+        function areCompatibleZodiacs(z1, z2) {
+            const fire = ['Aries', 'Leo', 'Sagittarius'];
+            const earth = ['Taurus', 'Virgo', 'Capricorn'];
+            const air = ['Gemini', 'Libra', 'Aquarius'];
+            const water = ['Cancer', 'Scorpio', 'Pisces'];
+
+            const z1Fire = fire.includes(z1);
+            const z1Earth = earth.includes(z1);
+            const z1Air = air.includes(z1);
+            const z1Water = water.includes(z1);
+
+            const z2Fire = fire.includes(z2);
+            const z2Earth = earth.includes(z2);
+            const z2Air = air.includes(z2);
+            const z2Water = water.includes(z2);
+
+            // Fire + Air compatible, Earth + Water compatible
+            return (z1Fire && z2Air) || (z1Air && z2Fire) || (z1Earth && z2Water) || (z1Water && z2Earth);
         }
 
         function log(msg, isWitch) {
