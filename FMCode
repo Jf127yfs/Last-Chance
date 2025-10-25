@@ -74,11 +74,9 @@ function getVillageBiosForCheckedIn() {
       const row = frcData[i];
 
       // Include all guests (removed check-in filter)
-      {
-        const bio = generateBioFromRow(row);
-        if (bio) {
-          bios.push(bio);
-        }
+      const bio = generateBioFromRow(row);
+      if (bio) {
+        bios.push(bio);
       }
     }
 
