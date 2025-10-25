@@ -491,14 +491,14 @@ function getRaceData() {
     const guests = getCheckedInGuests();
     Logger.log(`Found ${guests.length} total guests in FRC`);
 
-    if (guests.length < 5) {
-      throw new Error(`Not enough guests. Found ${guests.length}, need at least 5.`);
+    if (guests.length < 10) {
+      throw new Error(`Not enough guests. Found ${guests.length}, need at least 10.`);
     }
 
-    // Randomly select 5 guests
+    // Randomly select 10 guests
     const shuffled = guests.sort(() => Math.random() - 0.5);
-    const selectedGuests = shuffled.slice(0, 5);
-    Logger.log(`Selected 5 random guests: ${selectedGuests.map(g => g.screenName).join(', ')}`);
+    const selectedGuests = shuffled.slice(0, 10);
+    Logger.log(`Selected 10 random guests: ${selectedGuests.map(g => g.screenName).join(', ')}`);
 
     // Get Pan_Master sheet
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -573,11 +573,11 @@ function getRaceData() {
       Logger.log(`✓ Matched ${guest.screenName} to Pan_Master row`);
     }
 
-    if (racers.length < 5) {
+    if (racers.length < 10) {
       Logger.log(`⚠️ Only found ${racers.length} racers with Pan_Master data`);
-      // Continue anyway if we have at least 2
-      if (racers.length < 2) {
-        throw new Error(`Not enough racers with Pan_Master data. Found ${racers.length}, need at least 2.`);
+      // Continue anyway if we have at least 5
+      if (racers.length < 5) {
+        throw new Error(`Not enough racers with Pan_Master data. Found ${racers.length}, need at least 5.`);
       }
     }
 
