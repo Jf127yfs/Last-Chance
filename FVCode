@@ -496,36 +496,14 @@ function resetSimulation() {
 }
 
 /**
- * Show map
+ * Show village map
  */
-function showFarmvilleMap() {
-  const html = HtmlService.createHtmlOutputFromFile('FarmvilleMap')
+function showVillageMap() {
+  const html = HtmlService.createHtmlOutputFromFile('FV')
     .setWidth(1400)
     .setHeight(800)
     .setTitle('Village Map');
   SpreadsheetApp.getUi().showModalDialog(html, 'Village Map');
-}
-
-/**
- * Show chronicle
- */
-function showVillageChronicle() {
-  const html = HtmlService.createHtmlOutputFromFile('VillageChronicle')
-    .setWidth(1600)
-    .setHeight(900)
-    .setTitle('Village Chronicle');
-  SpreadsheetApp.getUi().showModalDialog(html, 'Village Chronicle');
-}
-
-/**
- * Show story log
- */
-function showStoryLog() {
-  const html = HtmlService.createHtmlOutputFromFile('StoryLog')
-    .setWidth(1000)
-    .setHeight(700)
-    .setTitle('Story Log');
-  SpreadsheetApp.getUi().showModalDialog(html, 'Story Log');
 }
 
 /**
@@ -534,11 +512,8 @@ function showStoryLog() {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🏘️ Village Sim')
+    .addItem('Show Village Map 🗺️', 'showVillageMap')
     .addItem('Generate Story Cycle', 'generateStoryCycle')
-    .addItem('Show Story Log', 'showStoryLog')
-    .addSeparator()
-    .addItem('Show Village Map 🗺️', 'showFarmvilleMap')
-    .addItem('Show Chronicle 📜', 'showVillageChronicle')
     .addSeparator()
     .addItem('Reset Simulation', 'resetSimulation')
     .addToUi();
