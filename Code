@@ -532,18 +532,42 @@ function getRaceData() {
         continue; // Skip this racer
       }
 
-      // Convert Pan_Master row to object with column names as keys
+      // Only include NUMERICAL columns that will be used in the race
+      // Skip: Screen Name, UID, TimestampMs, Birthday_MM/DD (Date objects cause serialization issues)
+      const numericalColumns = [
+        'Row', 'Zip',
+        'code_age_range', 'code_education', 'code_ethnicity', 'code_gender',
+        'code_orientation', 'code_industry', 'code_role', 'code_know_hosts',
+        'code_known_longest', 'code_music_pref', 'code_recent_purchase', 'code_at_worst',
+        'oh_interests_Cooking', 'oh_interests_Music', 'oh_interests_Fashion',
+        'oh_interests_Travel', 'oh_interests_Fitness', 'oh_interests_Gaming',
+        'oh_interests_Reading', 'oh_interests_Art/Design', 'oh_interests_Photography',
+        'oh_interests_Hiking/Outdoors', 'oh_interests_Sports (general)',
+        'oh_interests_Volunteering', 'oh_interests_Health Sciences',
+        'oh_interests_TikTok (watching)', 'oh_interests_Halloween orgy',
+        'oh_interests_Frying oil', 'code_know_score', 'code_social_stance',
+        'has_fav_artist', 'has_song'
+      ];
+
+      // Build panData object with ONLY numerical columns
       const panDataObj = {};
-      for (let j = 0; j < panHeaders.length; j++) {
-        panDataObj[panHeaders[j]] = panRow[j];
+      for (const colName of numericalColumns) {
+        const colIndex = panHeaders.indexOf(colName);
+        if (colIndex !== -1) {
+          const value = panRow[colIndex];
+          // Convert to number or keep as empty string (safer for serialization)
+          panDataObj[colName] = (value === null || value === undefined || value === '') ? '' : Number(value) || value;
+        } else {
+          panDataObj[colName] = ''; // Column not found, treat as blank
+        }
       }
 
       // IMPORTANT: Use Screen Name from FRC, not Pan_Master
       racers.push({
         screenName: guest.screenName,  // From FRC (fresh, editable)
         uid: guest.uid,                 // From FRC
-        photoUrl: guest.photoUrl,       // From FRC
-        panData: panDataObj             // From Pan_Master (analytics)
+        photoUrl: guest.photoUrl || '', // From FRC (ensure string)
+        panData: panDataObj             // Only numerical columns from Pan_Master
       });
 
       Logger.log(`✓ Matched ${guest.screenName} to Pan_Master row`);
