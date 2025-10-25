@@ -479,11 +479,17 @@ function getCheckedInGuests() {
 /**
  * Get race data for Pan Analytics Race
  * Returns 5 random racers with their Pan_Master data
+ *
+ * IMPORTANT: Screen Name is ALWAYS pulled from FRC (fresh/editable)
+ * Pan_Master data is matched via UID for analytics
  */
 function getRaceData() {
   try {
+    Logger.log('🏁 Starting getRaceData...');
+
     // Get all checked-in guests from FRC
     const guests = getCheckedInGuests();
+    Logger.log(`Found ${guests.length} total guests in FRC`);
 
     if (guests.length < 5) {
       throw new Error(`Not enough guests. Found ${guests.length}, need at least 5.`);
@@ -492,6 +498,7 @@ function getRaceData() {
     // Randomly select 5 guests
     const shuffled = guests.sort(() => Math.random() - 0.5);
     const selectedGuests = shuffled.slice(0, 5);
+    Logger.log(`Selected 5 random guests: ${selectedGuests.map(g => g.screenName).join(', ')}`);
 
     // Get Pan_Master sheet
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -501,36 +508,53 @@ function getRaceData() {
       throw new Error('Pan_Master sheet not found');
     }
 
-    // Get Pan_Master data (header row + all data)
+    // Get Pan_Master data (ALL rows)
     const panData = panSheet.getDataRange().getValues();
     const panHeaders = panData[0]; // First row is headers
+    Logger.log(`Pan_Master has ${panData.length - 1} rows and ${panHeaders.length} columns`);
+    Logger.log(`Pan_Master headers: ${panHeaders.slice(0, 10).join(', ')}...`);
 
     // Build racers array with Pan_Master data
-    const racers = selectedGuests.map(guest => {
-      // Find this guest's row in Pan_Master by matching UID
-      const panRow = panData.find(row => row[1] === guest.uid); // Column 2 is UID in Pan_Master
+    const racers = [];
+
+    for (const guest of selectedGuests) {
+      // Find this guest's row in Pan_Master by matching UID (Column 2, index 1)
+      let panRow = null;
+      for (let i = 1; i < panData.length; i++) { // Skip header row
+        if (panData[i][1] === guest.uid) { // UID is column 2 (index 1)
+          panRow = panData[i];
+          break;
+        }
+      }
 
       if (!panRow) {
         Logger.log(`⚠️ Warning: No Pan_Master data found for ${guest.screenName} (${guest.uid})`);
-        return null;
+        continue; // Skip this racer
       }
 
       // Convert Pan_Master row to object with column names as keys
       const panDataObj = {};
-      panHeaders.forEach((header, index) => {
-        panDataObj[header] = panRow[index];
+      for (let j = 0; j < panHeaders.length; j++) {
+        panDataObj[panHeaders[j]] = panRow[j];
+      }
+
+      // IMPORTANT: Use Screen Name from FRC, not Pan_Master
+      racers.push({
+        screenName: guest.screenName,  // From FRC (fresh, editable)
+        uid: guest.uid,                 // From FRC
+        photoUrl: guest.photoUrl,       // From FRC
+        panData: panDataObj             // From Pan_Master (analytics)
       });
 
-      return {
-        screenName: guest.screenName,
-        uid: guest.uid,
-        photoUrl: guest.photoUrl,
-        panData: panDataObj
-      };
-    }).filter(r => r !== null); // Remove any null entries
+      Logger.log(`✓ Matched ${guest.screenName} to Pan_Master row`);
+    }
 
     if (racers.length < 5) {
-      throw new Error(`Not enough racers with Pan_Master data. Found ${racers.length}, need 5.`);
+      Logger.log(`⚠️ Only found ${racers.length} racers with Pan_Master data`);
+      // Continue anyway if we have at least 2
+      if (racers.length < 2) {
+        throw new Error(`Not enough racers with Pan_Master data. Found ${racers.length}, need at least 2.`);
+      }
     }
 
     Logger.log(`✅ Race data prepared for ${racers.length} racers`);
@@ -542,6 +566,7 @@ function getRaceData() {
 
   } catch (error) {
     Logger.log(`❌ Error in getRaceData: ${error.message}`);
+    Logger.log(error.stack);
     return {
       success: false,
       error: error.message
