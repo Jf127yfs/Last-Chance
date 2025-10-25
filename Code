@@ -1123,6 +1123,71 @@ function uploadGuestPhoto(uidOrPayload, fileName, mimeType, base64Data) {
 
 
 
+// ============================================================================
+// FV (FARM & VILLAGERS) SUPPORT
+// ============================================================================
+
+/**
+ * Get active checked-in villagers for FV map display
+ * Called by FV.html via google.script.run
+ *
+ * @returns {object} {success: true, villagers: [{screenName, ddd}, ...]}
+ */
+function getActiveVillagersForMap() {
+  try {
+    const sheet = getFRCSheet();
+    if (!sheet) {
+      throw new Error('FRC sheet not found');
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+
+    // Find column indices
+    const screenNameIdx = headers.indexOf('Screen Name');
+    const checkedInIdx = headers.indexOf('Checked-In');
+    const frcIdx = headers.indexOf('FRC');
+
+    if (screenNameIdx === -1 || checkedInIdx === -1) {
+      throw new Error('Required columns not found in FRC sheet');
+    }
+
+    const villagers = [];
+
+    // Loop through all rows (skip header)
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const screenName = String(row[screenNameIdx] || '').trim();
+      const checkedIn = String(row[checkedInIdx] || '').trim().toUpperCase();
+      const ddd = frcIdx >= 0 ? (parseInt(row[frcIdx]) || 0) : 0;
+
+      // Only include checked-in guests with screen names
+      if ((checkedIn === 'Y' || checkedIn === 'YES') && screenName) {
+        villagers.push({
+          screenName: screenName,
+          ddd: ddd
+        });
+      }
+    }
+
+    Logger.log(`FV: Found ${villagers.length} checked-in villagers`);
+
+    return {
+      success: true,
+      villagers: villagers
+    };
+
+  } catch (error) {
+    Logger.log('ERROR in getActiveVillagersForMap: ' + error.toString());
+    return {
+      success: false,
+      error: error.message,
+      villagers: []
+    };
+  }
+}
+
+
 /**
  * ============================================================================
  * NEXT BUILD PHASES (placeholders):
