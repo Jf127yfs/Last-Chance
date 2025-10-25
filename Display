@@ -305,7 +305,7 @@
       <div class="setting-group">
         <label>
           <input type="checkbox" id="use-local-files" style="width: auto; margin-right: 10px;" checked>
-          Use Local HTML Files (Intro.html, MapDisplay.html, mm, FV.html, ALM, Wall.html)
+          Use Local HTML Files (Intro, MapDisplay, mm, FV, ALMhtml, PanRace, Wall)
         </label>
         <div style="font-size: 11px; color: #666; margin-top: 5px; margin-left: 30px;">
           When checked, loads pages from local files. Uncheck to use deployment URL below.
@@ -342,6 +342,10 @@
           <div class="duration-item">
             <label>ALM (Dance Teams):</label>
             <input type="number" id="duration-ALM" value="90" min="10" max="1200">
+          </div>
+          <div class="duration-item">
+            <label>PanRace (Racing):</label>
+            <input type="number" id="duration-PanRace" value="120" min="10" max="1200">
           </div>
           <div class="duration-item">
             <label>Wall:</label>
@@ -403,12 +407,13 @@
       useLocalFiles: inAppsScriptEnv ? false : (localStorage.getItem('useLocalFiles') !== 'false'), // Auto-disable local files in Apps Script
       refreshOnDisplay: localStorage.getItem('refreshOnDisplay') !== 'false', // Default to refresh
       stages: [
-        { name: 'Intro', file: 'Intro.html', page: 'intro', duration: 30 },
-        { name: 'MapDisplay', file: 'MapDisplay.html', page: 'md', duration: 120 },
+        { name: 'Intro', file: 'Intro', page: 'intro', duration: 30 },
+        { name: 'MapDisplay', file: 'MapDisplay', page: 'md', duration: 120 },
         { name: 'mm', file: 'mm', page: 'mm', duration: 90 },
-        { name: 'FV', file: 'FV.html', page: 'fv', duration: 60 },
-        { name: 'ALM', file: 'ALM', page: 'alm', duration: 90 },
-        { name: 'Wall', file: 'Wall.html', page: 'wall', duration: 120 }
+        { name: 'FV', file: 'FV', page: 'fv', duration: 60 },
+        { name: 'ALM', file: 'ALMhtml', page: 'alm', duration: 90 },
+        { name: 'PanRace', file: 'PanRace', page: 'race', duration: 120 },
+        { name: 'Wall', file: 'Wall', page: 'wall', duration: 120 }
       ],
       transitionStyle: localStorage.getItem('transitionStyle') || 'fade',
       transitionDuration: 1000, // ms
