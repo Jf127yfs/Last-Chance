@@ -98,6 +98,7 @@ const CONFIG = {
     FRC: 'FRC',  // Form Responses (Clean) - main guest data
     MASTER_DESC: 'Master_Desc',
     PAN_LOG: 'Pan_Log',
+    PAN_MASTER: 'Pan_Master',  // Pan Analytics Master data
     TOOL_REGISTRY: 'Tool_Registry',
     DATA_DICT: 'Data_Dictionary'
   },
@@ -345,6 +346,10 @@ function doGet(e) {
       case 'alm':
         return servePageNoCaching('ALM', 'Dance Team Generator - Pyramid Matchmaking');
 
+      case 'race':
+      case 'panrace':
+        return servePageNoCaching('PanRace', 'Pan Analytics Race Track');
+
       case 'village':
         return servePageNoCaching('VillageBios', 'Village Bios - Guest Profiles');
 
@@ -469,6 +474,79 @@ function getCheckedInGuests() {
 
   Logger.log(`✅ Found ${guests.length} total guests`);
   return guests;
+}
+
+/**
+ * Get race data for Pan Analytics Race
+ * Returns 5 random racers with their Pan_Master data
+ */
+function getRaceData() {
+  try {
+    // Get all checked-in guests from FRC
+    const guests = getCheckedInGuests();
+
+    if (guests.length < 5) {
+      throw new Error(`Not enough guests. Found ${guests.length}, need at least 5.`);
+    }
+
+    // Randomly select 5 guests
+    const shuffled = guests.sort(() => Math.random() - 0.5);
+    const selectedGuests = shuffled.slice(0, 5);
+
+    // Get Pan_Master sheet
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const panSheet = ss.getSheetByName(CONFIG.SHEETS.PAN_MASTER);
+
+    if (!panSheet) {
+      throw new Error('Pan_Master sheet not found');
+    }
+
+    // Get Pan_Master data (header row + all data)
+    const panData = panSheet.getDataRange().getValues();
+    const panHeaders = panData[0]; // First row is headers
+
+    // Build racers array with Pan_Master data
+    const racers = selectedGuests.map(guest => {
+      // Find this guest's row in Pan_Master by matching UID
+      const panRow = panData.find(row => row[1] === guest.uid); // Column 2 is UID in Pan_Master
+
+      if (!panRow) {
+        Logger.log(`⚠️ Warning: No Pan_Master data found for ${guest.screenName} (${guest.uid})`);
+        return null;
+      }
+
+      // Convert Pan_Master row to object with column names as keys
+      const panDataObj = {};
+      panHeaders.forEach((header, index) => {
+        panDataObj[header] = panRow[index];
+      });
+
+      return {
+        screenName: guest.screenName,
+        uid: guest.uid,
+        photoUrl: guest.photoUrl,
+        panData: panDataObj
+      };
+    }).filter(r => r !== null); // Remove any null entries
+
+    if (racers.length < 5) {
+      throw new Error(`Not enough racers with Pan_Master data. Found ${racers.length}, need 5.`);
+    }
+
+    Logger.log(`✅ Race data prepared for ${racers.length} racers`);
+
+    return {
+      success: true,
+      racers: racers
+    };
+
+  } catch (error) {
+    Logger.log(`❌ Error in getRaceData: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }
 
 /**
