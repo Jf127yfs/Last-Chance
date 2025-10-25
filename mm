@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>🎃 Halloween Match Maker // Live Analytics</title>
+  <title>💃 Dance Mom Match Maker // Live Analytics
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     :root {
@@ -815,25 +815,178 @@
     };
 
     // Halloween copy bank
-    const HALLOWEEN_TITLES = [
-      "Spooktacular Match",
-      "Ghoul-Compatible",
-      "Witching-Hour Win",
-      "Phantom Synergy",
-      "Coffin-Fit Chemistry",
-      "Pumpkin-Patch Pair",
-      "Ectoplasmic Alignment",
-      "Bewitched by Similarities"
-    ];
+    // ============================================================================
+    // ABBIE LEE TIER SYSTEM
+    // ============================================================================
 
-    const HALLOWEEN_PHRASES = [
-      "You're vibing on the same frequency—cue the séance of friendship.",
-      "Shared tastes summoned this connection from the void.",
-      "A cauldron of common ground is bubbling over.",
-      "If this were a haunted house, you'd pick the same door.",
-      "Your playlists howl in harmony.",
-      "Two souls, one spellbook."
-    ];
+    const ABBIE_TIERS = {
+      ELITE: {
+        min: 90,
+        max: 100,
+        name: "TOP OF THE PYRAMID",
+        badge: "👑",
+        titles: [
+          "Top of the Pyramid",
+          "Star Quality Duo",
+          "Perfect Formation",
+          "Standing Ovation",
+          "Prima Perfection"
+        ],
+        quotes: [
+          "Everyone's replaceable... except you two!",
+          "This is what STAR QUALITY looks like!",
+          "You two are dancing like you WANT IT!",
+          "Absolutely STUNNING performance!",
+          "This is PERFECTION. Take a bow!",
+          "You're at the TOP and you're staying there!",
+          "I'm SCREAMING! This is incredible!",
+          "THAT'S how you do it! Beautiful!",
+          "You two together? MAGIC!"
+        ]
+      },
+      STAR: {
+        min: 75,
+        max: 89,
+        name: "STAR QUALITY",
+        badge: "⭐",
+        titles: [
+          "Star Quality",
+          "Spotlight Worthy",
+          "Stage Ready",
+          "Competition Ready",
+          "Winning Combination"
+        ],
+        quotes: [
+          "You're at the top of the pyramid... for now.",
+          "Save your tears for the pillow—this is GOOD!",
+          "I see potential here. Don't waste it!",
+          "You're dancing with confidence. I like it!",
+          "This could win nationals. Keep it up!",
+          "Beautiful lines! You two complement each other!",
+          "You're bringing the ENERGY I need!",
+          "This is what I'm TALKING about!",
+          "You two are SHINING out there!"
+        ]
+      },
+      SOLID: {
+        min: 60,
+        max: 74,
+        name: "MAKING PROGRESS",
+        badge: "💫",
+        titles: [
+          "Making Progress",
+          "Room to Grow",
+          "Getting There",
+          "On The Right Track",
+          "Developing Talent"
+        ],
+        quotes: [
+          "It's fine. It's not great, but it's fine.",
+          "You're getting there. Don't stop now!",
+          "I've seen worse... I've also seen better.",
+          "Keep working. You'll get there.",
+          "This has potential if you WORK for it!",
+          "Not bad! Clean it up and you've got something!",
+          "You're on the right track. Keep pushing!",
+          "I see what you're trying to do. Almost there!",
+          "Good effort! Now make it GREAT!"
+        ]
+      },
+      STRUGGLE: {
+        min: 45,
+        max: 59,
+        name: "NEEDS WORK",
+        badge: "⚠️",
+        titles: [
+          "Needs Work",
+          "Rough Around the Edges",
+          "Back to Rehearsal",
+          "Practice Makes Perfect",
+          "Work in Progress"
+        ],
+        quotes: [
+          "Save your tears for the pillow.",
+          "This needs A LOT of work.",
+          "What is HAPPENING right now?!",
+          "We have work to do. LOTS of work.",
+          "You can do better than this. I know you can!",
+          "This is sloppy! Clean it up!",
+          "Are you even TRYING?!",
+          "Get it together! Where's the focus?",
+          "This isn't competition ready. Not even close!"
+        ]
+      },
+      DISASTER: {
+        min: 30,
+        max: 44,
+        name: "HOT MESS",
+        badge: "🔥",
+        titles: [
+          "Hot Mess",
+          "Complete Disaster",
+          "Train Wreck",
+          "Catastrophe",
+          "Emergency Rehearsal"
+        ],
+        quotes: [
+          "This is a DISASTER!",
+          "I can't. I just CAN'T!",
+          "What did I just WATCH?!",
+          "This is a hot mess express!",
+          "You're giving me NOTHING!",
+          "Were you even paying attention in rehearsal?!",
+          "This is embarrassing!",
+          "I'm at a loss for words... and that's saying something!",
+          "Go to the back of the room and think about what you did!"
+        ]
+      },
+      CHAOS: {
+        min: 0,
+        max: 29,
+        name: "ABSOLUTE CHAOS",
+        badge: "💥",
+        titles: [
+          "Absolute Chaos",
+          "Beyond Help",
+          "Choreography Crime",
+          "Performance Felony",
+          "Dance Emergency"
+        ],
+        quotes: [
+          "I'm DONE. Absolutely DONE!",
+          "This is the worst thing I've ever seen!",
+          "How is this even POSSIBLE?!",
+          "You two together is a CRIME against dance!",
+          "Somebody call the authorities. This is CRIMINAL!",
+          "I need a MINUTE. This is TOO MUCH!",
+          "Pack your bags. You're CANCELED!",
+          "This made my eye twitch. MY EYE TWITCHED!",
+          "I've seen better at a middle school recital!"
+        ]
+      }
+    };
+
+    function getAbbieTier(score) {
+      for (const [key, tier] of Object.entries(ABBIE_TIERS)) {
+        if (score >= tier.min && score <= tier.max) {
+          return {
+            name: tier.name,
+            badge: tier.badge,
+            title: getRandomItem(tier.titles),
+            quote: getRandomItem(tier.quotes),
+            tierKey: key
+          };
+        }
+      }
+      // Fallback
+      return {
+        name: "MAKING PROGRESS",
+        badge: "💫",
+        title: "Room to Grow",
+        quote: "Keep working. You'll get there.",
+        tierKey: "SOLID"
+      };
+    }
 
     // ============================================================================
     // STATE
@@ -1034,21 +1187,21 @@
     }
 
     function revealMatch(match, stage, displayScore) {
-      const title = getRandomItem(HALLOWEEN_TITLES);
-      const phrase = getRandomItem(HALLOWEEN_PHRASES);
-      
+      // Get Abbie Lee tier based on score
+      const tier = getAbbieTier(displayScore);
+
       // Build shared interests HTML
       const sharedHtml = match.sharedInterests && match.sharedInterests.length > 0
         ? match.sharedInterests.map(int => `<span class="interest-tag">${escapeHtml(int)}</span>`).join('')
         : '<span class="interest-tag">Different paths, same vibe</span>';
-      
+
       stage.innerHTML = `
-        <div class="match-title">${title}</div>
-        
+        <div class="match-title">${tier.badge} ${tier.title}</div>
+
         <div class="match-pair">
           <div class="match-person">
             <div class="match-avatar">
-              ${match.person1.photoUrl 
+              ${match.person1.photoUrl
                 ? `<img src="${escapeHtml(match.person1.photoUrl)}" alt="${escapeHtml(match.person1.screenName)}">`
                 : '<div class="match-avatar-placeholder">👤</div>'
               }
@@ -1062,11 +1215,12 @@
 
           <div class="match-score-ring">
             <div class="score-percentage">${displayScore}%</div>
+            <div style="font-size: 11px; color: var(--amber); margin-top: 5px; font-weight: bold;">${tier.name}</div>
           </div>
 
           <div class="match-person">
             <div class="match-avatar">
-              ${match.person2.photoUrl 
+              ${match.person2.photoUrl
                 ? `<img src="${escapeHtml(match.person2.photoUrl)}" alt="${escapeHtml(match.person2.screenName)}">`
                 : '<div class="match-avatar-placeholder">👤</div>'
               }
@@ -1084,8 +1238,8 @@
           ${sharedHtml}
         </div>
 
-        <div style="text-align: center; margin-top: 15px; font-size: 13px; color: var(--cream); font-style: italic;">
-          ${phrase}
+        <div style="text-align: center; margin-top: 15px; font-size: 14px; color: var(--amber); font-style: italic; font-weight: bold;">
+          "${tier.quote}"
         </div>
       `;
       
@@ -1227,11 +1381,11 @@
 
       // 1. BEST OVERALL MATCH
       if (sup.bestOverallMatch) {
-        const title = getRandomItem(HALLOWEEN_TITLES);
+        const tier = getAbbieTier(sup.bestOverallMatch.score);
         items.push(`
           <div class="superlative-item">
             <div class="superlative-title">👑 Best Overall Match</div>
-            <div class="superlative-value">${title} — @${escapeHtml(sup.bestOverallMatch.name1)} & @${escapeHtml(sup.bestOverallMatch.name2)} are a spooktacular ${sup.bestOverallMatch.score}% match!</div>
+            <div class="superlative-value">${tier.badge} ${tier.title} — @${escapeHtml(sup.bestOverallMatch.name1)} & @${escapeHtml(sup.bestOverallMatch.name2)} are a stunning ${sup.bestOverallMatch.score}% match!</div>
           </div>
         `);
       }
@@ -1251,7 +1405,7 @@
         items.push(`
           <div class="superlative-item">
             <div class="superlative-title">💡 Most Shared Interest</div>
-            <div class="superlative-value">"${escapeHtml(sup.mostSharedInterest.interest)}" haunts ${sup.mostSharedInterest.pct}% of guests — a true phantom favorite!</div>
+            <div class="superlative-value">"${escapeHtml(sup.mostSharedInterest.interest)}" dominates ${sup.mostSharedInterest.pct}% of guests — the crowd FAVORITE!</div>
           </div>
         `);
       }
