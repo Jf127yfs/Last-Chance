@@ -330,20 +330,43 @@
       TRACK_WIDTH_PERCENT: 90      // Track goes to 90% of screen
     };
 
-    // Numerical columns from Pan_Master (skipping timestamps)
+    // Numerical columns from Pan_Master (EXACT COLUMN NAMES - skipping Screen Name, UID, TimestampMs, Birthday)
+    // Column names MUST match Pan_Master sheet headers exactly
     const NUMERICAL_COLUMNS = [
-      'Row', 'Zip',
-      'code_age_range', 'code_education', 'code_ethnicity', 'code_gender',
-      'code_orientation', 'code_industry', 'code_role', 'code_know_hosts',
-      'code_known_longest', 'code_music_pref', 'code_recent_purchase', 'code_at_worst',
-      'oh_interests_Cooking', 'oh_interests_Music', 'oh_interests_Fashion',
-      'oh_interests_Travel', 'oh_interests_Fitness', 'oh_interests_Gaming',
-      'oh_interests_Reading', 'oh_interests_Art/Design', 'oh_interests_Photography',
-      'oh_interests_Hiking/Outdoors', 'oh_interests_Sports (general)',
-      'oh_interests_Volunteering', 'oh_interests_Health Sciences',
-      'oh_interests_TikTok (watching)', 'oh_interests_Halloween orgy',
-      'oh_interests_Frying oil', 'code_know_score', 'code_social_stance',
-      'has_fav_artist', 'has_song'
+      'Row',                              // Column 3
+      'Zip',                              // Column 6
+      'code_age_range',                   // Column 7
+      'code_education',                   // Column 8
+      'code_ethnicity',                   // Column 9
+      'code_gender',                      // Column 10
+      'code_orientation',                 // Column 11
+      'code_industry',                    // Column 12
+      'code_role',                        // Column 13
+      'code_know_hosts',                  // Column 14
+      'code_known_longest',               // Column 15
+      'code_music_pref',                  // Column 16
+      'code_recent_purchase',             // Column 17
+      'code_at_worst',                    // Column 18
+      'oh_interests_Cooking',             // Column 19
+      'oh_interests_Music',               // Column 20
+      'oh_interests_Fashion',             // Column 21
+      'oh_interests_Travel',              // Column 22
+      'oh_interests_Fitness',             // Column 23
+      'oh_interests_Gaming',              // Column 24
+      'oh_interests_Reading',             // Column 25
+      'oh_interests_Art/Design',          // Column 26
+      'oh_interests_Photography',         // Column 27
+      'oh_interests_Hiking/Outdoors',     // Column 28
+      'oh_interests_Sports (general)',    // Column 29
+      'oh_interests_Volunteering',        // Column 30
+      'oh_interests_Health Sciences',     // Column 31
+      'oh_interests_TikTok (watching)',   // Column 32
+      'oh_interests_Halloween orgy',      // Column 33
+      'oh_interests_Frying oil',          // Column 34
+      'code_know_score',                  // Column 35
+      'code_social_stance',               // Column 36
+      'has_fav_artist',                   // Column 37
+      'has_song'                          // Column 38
     ];
 
     // ============================================================================
