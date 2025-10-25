@@ -365,15 +365,46 @@
 
     function loadRacers() {
       // Call Google Apps Script to get 5 random racers with Pan_Master data
-      google.script.run
-        .withSuccessHandler(onRacersLoaded)
-        .withFailureHandler(onError)
-        .getRaceData();
+      if (typeof google !== 'undefined' && google.script) {
+        google.script.run
+          .withSuccessHandler(onRacersLoaded)
+          .withFailureHandler(onError)
+          .getRaceData();
+      } else {
+        // Fallback for testing outside Google Apps Script
+        console.log('Using sample data (not in Google Apps Script environment)');
+        onRacersLoaded(generateSampleData());
+      }
+    }
+
+    function generateSampleData() {
+      // Generate sample racers for testing
+      const sampleNames = ['Racer Alpha', 'Racer Beta', 'Racer Gamma', 'Racer Delta', 'Racer Epsilon'];
+      const racers = sampleNames.map((name, idx) => {
+        // Generate random Pan_Master data
+        const panData = {};
+        NUMERICAL_COLUMNS.forEach(col => {
+          // Random number 0-9 for each column
+          panData[col] = Math.floor(Math.random() * 10);
+        });
+
+        return {
+          screenName: name,
+          uid: 'TEST_' + idx,
+          photoUrl: '',
+          panData: panData
+        };
+      });
+
+      return {
+        success: true,
+        racers: racers
+      };
     }
 
     function onRacersLoaded(data) {
-      if (!data || !data.racers || data.racers.length === 0) {
-        onError('No racers found');
+      if (!data || !data.success || !data.racers || data.racers.length === 0) {
+        onError(data?.error || 'No racers found');
         return;
       }
 
@@ -516,7 +547,34 @@
 
         // Add confetti
         createConfetti();
+
+        // AUTO-RESTART: After 20 seconds, start new race with new racers
+        setTimeout(() => {
+          restartRace();
+        }, RACE_CONFIG.WINNER_TIME_MS);
       }, 1000);
+    }
+
+    function restartRace() {
+      // Hide winner screen
+      document.getElementById('winnerScreen').classList.remove('show');
+
+      // Show loading screen
+      const loadingScreen = document.getElementById('loadingScreen');
+      loadingScreen.style.display = 'flex';
+      loadingScreen.innerHTML = `
+        <div class="loading-icon">🏎️</div>
+        <div class="loading-text">Loading Next Race...</div>
+      `;
+
+      // Reset state
+      racers = [];
+      currentColumn = 0;
+
+      // Load new racers
+      setTimeout(() => {
+        loadRacers();
+      }, 2000);
     }
 
     function createConfetti() {
