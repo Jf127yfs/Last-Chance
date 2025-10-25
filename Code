@@ -885,50 +885,18 @@ function checkInGuest(zipOrPayload, gender, dob) {
       }
       
       // Check for match
-      if (rowZip === zipCode && 
-          rowGender.toLowerCase() === genderValue.toLowerCase() && 
+      if (rowZip === zipCode &&
+          rowGender.toLowerCase() === genderValue.toLowerCase() &&
           normalizedRowBirthday === normalizedBirthday) {
-        
+
         Logger.log(`✅ MATCH FOUND at row ${i+1}: ${rowScreenName} (${rowUID})`);
-        
-        // Check if already checked in
-        const alreadyCheckedIn = String(row[CONFIG.COL.CHECKED_IN] || '').trim();
-        
-        if (alreadyCheckedIn === 'Y' || alreadyCheckedIn === 'Yes') {
-          const existingTime = row[CONFIG.COL.CHECKIN_TIME];
-          Logger.log('⚠️ Guest already checked in at: ' + existingTime);
-          
-          return {
-            ok: true,
-            message: 'Welcome back! You were already checked in.',
-            screenName: rowScreenName,
-            uid: rowUID,
-            alreadyCheckedIn: true,
-            checkInTime: existingTime,
-            photoUrl: row[CONFIG.COL.PHOTO_URL] || ''
-          };
-        }
-        
-        // Perform check-in
-        const checkInTime = new Date();
-        const targetRow = i + 1; // Convert to 1-indexed
-        
-        Logger.log(`📝 Checking in at row ${targetRow}...`);
-        
-        // Write check-in data (Column AB = 28, Column AC = 29)
-        sheet.getRange(targetRow, CONFIG.COL.CHECKED_IN + 1).setValue('Y');
-        sheet.getRange(targetRow, CONFIG.COL.CHECKIN_TIME + 1).setValue(checkInTime);
-        SpreadsheetApp.flush();
-        
-        Logger.log(`✅ Check-in successful: ${rowScreenName}`);
-        
+
+        // Simply return guest info - no check-in status needed since analytics run on all guests
         return {
           ok: true,
-          message: 'Check-in successful! Welcome, ' + rowScreenName + '!',
+          message: 'Welcome, ' + rowScreenName + '!',
           screenName: rowScreenName,
           uid: rowUID,
-          alreadyCheckedIn: false,
-          checkInTime: checkInTime.toLocaleString(),
           photoUrl: row[CONFIG.COL.PHOTO_URL] || ''
         };
       }
