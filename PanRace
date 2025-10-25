@@ -262,37 +262,59 @@
     }
 
     .racer-photo {
-      width: 50px;
-      height: 50px;
+      width: 80px;
+      height: 80px;
       border-radius: 0%;
-      border: 3px solid var(--retro-cyan);
+      border: 5px solid transparent;
+      border-image: repeating-linear-gradient(
+        45deg,
+        #000 0px,
+        #000 8px,
+        #fff 8px,
+        #fff 16px
+      ) 5;
       object-fit: cover;
       background: var(--retro-dark);
       box-shadow:
-        0 0 15px rgba(6, 255, 165, 0.6),
-        0 4px 8px rgba(0,0,0,0.5);
+        0 0 20px rgba(255, 0, 110, 0.8),
+        0 6px 12px rgba(0,0,0,0.7);
+      position: relative;
     }
 
     .racer-photo-placeholder {
-      width: 50px;
-      height: 50px;
+      width: 80px;
+      height: 80px;
       border-radius: 0%;
-      border: 3px solid var(--retro-cyan);
-      background: linear-gradient(135deg, var(--retro-purple) 0%, var(--retro-dark) 100%);
+      border: 5px solid transparent;
+      border-image: repeating-linear-gradient(
+        45deg,
+        #000 0px,
+        #000 8px,
+        #fff 8px,
+        #fff 16px
+      ) 5;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          var(--retro-purple) 0px,
+          var(--retro-purple) 10px,
+          var(--retro-pink) 10px,
+          var(--retro-pink) 20px
+        );
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 40px;
       box-shadow:
-        0 0 15px rgba(6, 255, 165, 0.6),
-        0 4px 8px rgba(0,0,0,0.5);
+        0 0 20px rgba(255, 0, 110, 0.8),
+        0 6px 12px rgba(0,0,0,0.7);
     }
 
     .racer-card-name {
-      font-size: 9px;
+      font-size: 10px;
       color: var(--retro-yellow);
       font-weight: bold;
-      max-width: 70px;
+      max-width: 90px;
       text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
