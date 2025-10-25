@@ -46,7 +46,7 @@ const FM_CONFIG = {
 // ============================================================================
 
 /**
- * Get village bios for all checked-in guests
+ * Get village bios for all guests
  * Main entry point for VillageBios.html
  *
  * @return {Object} {bios: Array, totalGuests: Number}
@@ -68,13 +68,13 @@ function getVillageBiosForCheckedIn() {
     // Get FRC data
     const frcData = frcSheet.getDataRange().getValues();
 
-    // Generate bios for checked-in guests
+    // Generate bios for all guests
     const bios = [];
     for (let i = 1; i < frcData.length; i++) {
       const row = frcData[i];
-      const checkedIn = String(row[CONFIG.COL.CHECKED_IN] || '').trim().toUpperCase();
 
-      if (checkedIn === 'Y') {
+      // Include all guests (removed check-in filter)
+      {
         const bio = generateBioFromRow(row);
         if (bio) {
           bios.push(bio);
@@ -82,7 +82,7 @@ function getVillageBiosForCheckedIn() {
       }
     }
 
-    Logger.log(`✅ Generated ${bios.length} village bios for checked-in guests`);
+    Logger.log(`✅ Generated ${bios.length} village bios for all guests`);
 
     return {
       bios: bios,
