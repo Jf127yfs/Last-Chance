@@ -1124,8 +1124,36 @@
                 const loc = LOCATIONS[locKey];
                 const v = {
                     id: `V_${vd.screenName}_${Date.now()}`,
+                    // Core
                     screenName: vd.screenName,
-                    ddd: vd.ddd,
+                    uid: vd.uid || '',
+                    photoUrl: vd.photoUrl || '',
+                    // Traits
+                    ddd: vd.ddd || 0,
+                    socialStance: vd.socialStance || 3,
+                    atWorst: vd.atWorst || '',
+                    // Interests
+                    interests: vd.interests || [],
+                    music: vd.music || '',
+                    artist: vd.artist || '',
+                    song: vd.song || '',
+                    recentPurchase: vd.recentPurchase || '',
+                    // Demographics
+                    zodiac: vd.zodiac || '',
+                    age: vd.age || '',
+                    gender: vd.gender || '',
+                    ethnicity: vd.ethnicity || '',
+                    orientation: vd.orientation || '',
+                    zip: vd.zip || '',
+                    // Professional
+                    education: vd.education || '',
+                    industry: vd.industry || '',
+                    role: vd.role || '',
+                    // Social
+                    knowHosts: vd.knowHosts || '',
+                    knownLongest: vd.knownLongest || '',
+                    knowScore: vd.knowScore || 0,
+                    // Map position
                     isWitch,
                     location: locKey,
                     position: {x:loc.x+(Math.random()-0.5)*5, y:loc.y+(Math.random()-0.5)*5},
@@ -1145,8 +1173,12 @@
             el.id = v.id;
             el.style.left = v.position.x + '%';
             el.style.top = v.position.y + '%';
+
+            // Add zodiac emoji to name tag
+            const zodiacEmoji = getZodiacEmoji(v.zodiac);
+
             el.innerHTML = `
-                <div class="screen-name-tag">${v.screenName}</div>
+                <div class="screen-name-tag">${zodiacEmoji} ${v.screenName}</div>
                 ${v.isWitch ? '<div class="witch-icon">🔮</div>' : ''}
                 <div class="villager-body">
                     <div class="pixel-head"></div>
@@ -1157,8 +1189,74 @@
                     <div class="pixel-leg right"></div>
                 </div>
             `;
-            el.onclick = () => alert(`👤 ${v.screenName}\n\n📊 DDD: ${v.ddd}\n${v.isWitch?'🔮 Witch (Exiled)':'✅ Normal'}`);
+            el.onclick = () => showVillagerProfile(v);
             document.getElementById('tilemapCanvas').appendChild(el);
+        }
+
+        function getZodiacEmoji(zodiac) {
+            const signs = {
+                'Aries': '♈', 'Taurus': '♉', 'Gemini': '♊', 'Cancer': '♋',
+                'Leo': '♌', 'Virgo': '♍', 'Libra': '♎', 'Scorpio': '♏',
+                'Sagittarius': '♐', 'Capricorn': '♑', 'Aquarius': '♒', 'Pisces': '♓'
+            };
+            return signs[zodiac] || '⭐';
+        }
+
+        function showVillagerProfile(v) {
+            const interests = v.interests && v.interests.length > 0
+                ? v.interests.join(', ')
+                : 'None listed';
+
+            const profile = `
+╔═══════════════════════════════╗
+    👤 ${v.screenName.toUpperCase()}
+╚═══════════════════════════════╝
+
+🎭 PERSONALITY
+   ${v.zodiac || 'Unknown'} | Social Level: ${v.socialStance}/5
+   At worst: ${v.atWorst || 'Not disclosed'}
+   DDD Violations: ${v.ddd} ${v.isWitch ? '🔮 (EXILED)' : ''}
+
+💫 INTERESTS
+   ${interests}
+
+🎵 MUSIC TASTE
+   Genre: ${v.music || 'Not specified'}
+   Artist: ${v.artist || 'Not specified'}
+   Song: ${v.song || 'Not specified'}
+
+🛍️ RECENT PURCHASE
+   ${v.recentPurchase || 'Not disclosed'}
+
+💼 PROFESSIONAL
+   Industry: ${v.industry || 'Not specified'}
+   Role: ${v.role || 'Not specified'}
+   Education: ${v.education || 'Not specified'}
+
+👥 SOCIAL
+   Knows hosts: ${v.knowHosts || 'Unknown'}
+   Connection score: ${v.knowScore || 0}
+
+📍 LOCATION
+   ${getLocationName(v.location)}
+   ZIP: ${v.zip || 'Unknown'}
+
+UID: ${v.uid}
+            `.trim();
+
+            alert(profile);
+        }
+
+        function getLocationName(locKey) {
+            const names = {
+                'MAIN_SQUARE': 'Main Square',
+                'INN': 'The Inn',
+                'HOSPITAL': 'Hospital',
+                'FARM': 'Farm',
+                'POND': 'Pond',
+                'WITCHES_WOODS': 'Witches\' Woods (Exile)'
+            };
+            return names[locKey] || locKey;
         }
 
         function startSim() {

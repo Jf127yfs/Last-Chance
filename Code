@@ -1107,22 +1107,52 @@ function getActiveVillagersForMap() {
   try {
     const guests = getCheckedInGuests();
 
-    // Build villager data with all fields for front-end
+    // Build RICH villager data with full profile for data-driven interactions
     const villagers = guests
       .filter(g => g.screenName) // Only guests with screen names
       .map(g => ({
+        // Core Identity
         uid: g.uid,
         screenName: g.screenName,
+        photoUrl: g.photoUrl || '',
+
+        // Personality & Traits
         ddd: g.dddScore || 0,
+        socialStance: g.socialStance || 3,
+        atWorst: g.atWorst || '',
+
+        // Interests & Preferences
         interests: [g.interest1, g.interest2, g.interest3].filter(Boolean),
-        socialStance: g.socialStance || 3
+        music: g.music || '',
+        artist: g.artist || '',
+        song: g.song || '',
+        recentPurchase: g.recentPurchase || '',
+
+        // Demographics
+        zodiac: g.zodiac || '',
+        age: g.age || '',
+        gender: g.gender || '',
+        ethnicity: g.ethnicity || '',
+        orientation: g.orientation || '',
+        zip: g.zip || '',
+
+        // Professional
+        education: g.education || '',
+        industry: g.industry || '',
+        role: g.role || '',
+
+        // Social
+        knowHosts: g.knowHosts || '',
+        knownLongest: g.knownLongest || '',
+        knowScore: g.knowScore || 0
       }));
 
-    Logger.log(`FV: Found ${villagers.length} total villagers`);
+    Logger.log(`FV: Found ${villagers.length} total villagers with rich profiles`);
 
     return {
       success: true,
-      villagers: villagers
+      villagers: villagers,
+      totalGuests: villagers.length
     };
 
   } catch (error) {
