@@ -4,29 +4,30 @@
  * ============================================================================
  * Main application code for guest check-in and data management system
  *
- * Version: 2.1.0
- * Last Updated: 2025-10-24
+ * Version: 2.2.0
+ * Last Updated: 2025-10-25
  *
- * WHAT'S NEW IN v2.1.0:
- * - Added aggressive cache-busting headers to all pages
- * - Implemented servePageNoCaching() helper function
- * - Added version identifiers to MapDisplay and Display pages
- * - Fixed deployment caching issues (pages now always serve fresh content)
+ * WHAT'S NEW IN v2.2.0:
+ * - Removed Display carousel (each page accessible independently)
+ * - Added buildDanceTeams() function for ALM pyramid
+ * - Fixed ALM routing to use ALMhtml file
+ * - All pages pull fresh screen names from FRC
+ * - Default route changed to Intro page
  *
  * SYSTEM OVERVIEW:
  * - Guest check-in system with photo upload
  * - Map visualization of zip code distribution
- * - Data analytics and display dashboard
+ * - Multiple interactive data visualizations
  * - Real-time guest tracking and management
  *
  * KEY FILES:
  * - Code (this file): Main application logic and routing
  * - MapCode: Zip code data extraction and geocoding
  * - CheckInInterface: Guest check-in HTML page
- * - MapDisplay: Zip code map visualization
+ * - Intro, mm, FV, ALMhtml, PanRace, Wall: Interactive visualizations
  * - SheetLocations: Data dictionary and sheet structure reference
  *
- * DEFAULT PAGE: Display dashboard (page=display or no parameter)
+ * DEFAULT PAGE: Intro (no parameter or page=intro)
  *
  * ============================================================================
  * DEPLOYMENT INSTRUCTIONS (CRITICAL - READ BEFORE DEPLOYING)
@@ -39,30 +40,30 @@
  * ----------------------------------------------
  * 1. In Google Apps Script Editor, click "Deploy" > "New deployment"
  * 2. Select type: "Web app"
- * 3. Description: "v2.1.0 - Cache-busting fix [DATE]"
+ * 3. Description: "v2.2.0 - Removed Display carousel [DATE]"
  * 4. Execute as: Your account
  * 5. Who has access: Choose based on your needs
  * 6. Click "Deploy"
  * 7. Copy the NEW deployment URL
- * 8. Update Display carousel settings with the new URL
- * 9. Test by checking browser console for version: 2.1.0-20251024
+ * 8. Access pages via URL parameters: ?page=intro, ?page=mm, ?page=fv, etc.
+ * 9. Default route (no parameter) shows Intro page
  *
  * METHOD 2: Manage Deployments (Alternative)
  * -------------------------------------------
  * 1. Click "Deploy" > "Manage deployments"
  * 2. Click the pencil icon next to your active deployment
  * 3. Under "Version", click "New version"
- * 4. Add description: "v2.1.0 - Cache-busting fix"
+ * 4. Add description: "v2.2.0 - Removed Display carousel"
  * 5. Click "Deploy"
  * 6. The URL stays the same, but serves new content
  *
  * VERIFICATION:
  * -------------
- * After deploying, verify the new version is live:
- * 1. Open the deployment URL + ?page=md
- * 2. Open browser console (F12)
- * 3. Look for log: "Version: 2.1.0-20251024"
- * 4. If you see old version or no version, clear cache and try again
+ * After deploying, verify pages are accessible:
+ * 1. Open the deployment URL (defaults to Intro page)
+ * 2. Test other pages: ?page=mm, ?page=fv, ?page=alm, ?page=race, ?page=wall
+ * 3. Open browser console (F12)
+ * 4. If you see old version or errors, clear cache and try again
  *
  * BROWSER CACHE CLEARING:
  * -----------------------
@@ -367,10 +368,9 @@ function doGet(e) {
         // Uses servePageNoCaching to prevent serving stale versions
         return servePageNoCaching('MapDisplay', 'Zip Map Display');
 
-      case 'display':
       default:
-        // DEFAULT PAGE: Display Carousel
-        return servePageNoCaching('Display', 'Panopticon Display');
+        // DEFAULT PAGE: Intro
+        return servePageNoCaching('Intro', 'Panopticon - Introduction');
     }
   } catch (error) {
     return createErrorPage(error);
