@@ -898,6 +898,7 @@
         let lastMajorEvent = Date.now();
         const MAJOR_EVENT_COOLDOWN = 3 * 60 * 1000; // 3 minutes
         let activeEvent = null;
+        let topCompatibilityMatches = []; // MM compatibility data
 
         function init() {
             createWorld();
@@ -1165,6 +1166,9 @@
         function onLoad(data) {
             if (!data.success) return;
             const existing = new Set(villagers.map(v=>v.screenName));
+
+            // Store MM compatibility data for Wedding event
+            topCompatibilityMatches = data.topMatches || [];
 
             // Randomly select 50 guests from all available
             let availableGuests = (data.villagers || []).filter(vd => !existing.has(vd.screenName));
@@ -1645,12 +1649,25 @@ UID: ${v.uid}
             // Count recent purchases
             const purchases = normal.filter(v => v.recentPurchase).length;
 
+            // Wedding weight increases if we have MM compatibility data
+            let weddingWeight = 0;
+            if (normal.length >= 2 && topCompatibilityMatches && topCompatibilityMatches.length > 0) {
+                // Higher weight if we have high-compatibility matches in the current session
+                const availableMatches = topCompatibilityMatches.filter(match => {
+                    return villagers.some(v => v.screenName === match.screenName1) &&
+                           villagers.some(v => v.screenName === match.screenName2);
+                });
+                weddingWeight = availableMatches.length > 0 ? 0.25 : 0.15;
+            } else if (normal.length >= 2) {
+                weddingWeight = 0.15; // Random pairing fallback
+            }
+
             return {
                 PLAGUE: healthcare / total,
                 BARN_FIRE: agriculture / total,
                 MUSIC_FESTIVAL: musicMax / total,
                 WITCH_TRIAL: witches.length > 0 ? witches.length / total : 0,
-                WEDDING: normal.length >= 2 ? 0.15 : 0, // Needs MM data check
+                WEDDING: weddingWeight,
                 MARKET_DAY: purchases / total,
                 HARVEST_FESTIVAL: agriculture / total,
                 BLOOD_MOON: witches.length > 0 ? (witches.length / total) * 1.5 : 0,
@@ -1758,14 +1775,34 @@ UID: ${v.uid}
         function triggerWedding(villagers) {
             if (villagers.length < 2) return;
 
-            // For now, pick two random villagers (will integrate MM data later)
-            const v1 = villagers[Math.floor(Math.random() * villagers.length)];
-            let v2 = villagers[Math.floor(Math.random() * villagers.length)];
-            while (v2.id === v1.id && villagers.length > 1) {
-                v2 = villagers[Math.floor(Math.random() * villagers.length)];
+            // Try to use MM compatibility data for most compatible couple
+            let v1, v2, compatibility;
+
+            if (topCompatibilityMatches && topCompatibilityMatches.length > 0) {
+                // Find a high-compatibility match from current villagers
+                for (const match of topCompatibilityMatches) {
+                    const villager1 = villagers.find(v => v.screenName === match.screenName1);
+                    const villager2 = villagers.find(v => v.screenName === match.screenName2);
+
+                    if (villager1 && villager2) {
+                        v1 = villager1;
+                        v2 = villager2;
+                        compatibility = match.compatibility;
+                        break;
+                    }
+                }
             }
 
-            const compatibility = Math.floor(Math.random() * 30) + 70; // 70-100% for wedding
+            // Fallback to random pairing if no MM data available
+            if (!v1 || !v2) {
+                v1 = villagers[Math.floor(Math.random() * villagers.length)];
+                v2 = villagers[Math.floor(Math.random() * villagers.length)];
+                while (v2.id === v1.id && villagers.length > 1) {
+                    v2 = villagers[Math.floor(Math.random() * villagers.length)];
+                }
+                compatibility = Math.floor(Math.random() * 30) + 70; // 70-100% for wedding
+            }
+
             cryer(`💒 SURPRISE WEDDING! @${v1.screenName} and @${v2.screenName} are getting married at Town Square! ${compatibility}% compatible!`);
             log(`💕 The whole village celebrates the union of @${v1.screenName} and @${v2.screenName}!`);
         }

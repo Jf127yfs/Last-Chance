@@ -1149,10 +1149,14 @@ function getActiveVillagersForMap() {
 
     Logger.log(`FV: Found ${villagers.length} total villagers with rich profiles`);
 
+    // Get top compatibility matches for Wedding event
+    const topMatches = getTopCompatibilityMatches(villagers);
+
     return {
       success: true,
       villagers: villagers,
-      totalGuests: villagers.length
+      totalGuests: villagers.length,
+      topMatches: topMatches
     };
 
   } catch (error) {
@@ -1162,6 +1166,71 @@ function getActiveVillagersForMap() {
       error: error.message,
       villagers: []
     };
+  }
+}
+
+/**
+ * Get top compatibility matches from Guest_Similarity sheet
+ * Returns top 5 pairs for use in major events (e.g., Wedding)
+ */
+function getTopCompatibilityMatches(villagers) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const simSheet = ss.getSheetByName('Guest_Similarity');
+
+    if (!simSheet) {
+      Logger.log('⚠️ Guest_Similarity sheet not found - returning empty matches');
+      return [];
+    }
+
+    const data = simSheet.getDataRange().getValues();
+    if (data.length < 2) return [];
+
+    // Build UID to screen name map for current villagers
+    const uidMap = {};
+    villagers.forEach(v => {
+      if (v.uid && v.screenName) {
+        uidMap[v.uid] = v.screenName;
+      }
+    });
+
+    const uids = data[0].slice(1); // First row, skip header
+    const matches = [];
+
+    // Scan similarity matrix for high scores
+    for (let i = 1; i < data.length; i++) {
+      const uid1 = data[i][0];
+      const screenName1 = uidMap[uid1];
+      if (!screenName1) continue; // Not in current session
+
+      for (let j = 1; j < data[i].length; j++) {
+        if (i >= j) continue; // Skip duplicates and self
+
+        const uid2 = uids[j - 1];
+        const screenName2 = uidMap[uid2];
+        if (!screenName2) continue; // Not in current session
+
+        const similarity = parseFloat(data[i][j]) || 0;
+
+        if (similarity > 0) {
+          matches.push({
+            uid1: uid1,
+            uid2: uid2,
+            screenName1: screenName1,
+            screenName2: screenName2,
+            compatibility: Math.round(similarity)
+          });
+        }
+      }
+    }
+
+    // Sort by compatibility descending and return top 5
+    matches.sort((a, b) => b.compatibility - a.compatibility);
+    return matches.slice(0, 5);
+
+  } catch (error) {
+    Logger.log('ERROR in getTopCompatibilityMatches: ' + error.toString());
+    return [];
   }
 }
 
