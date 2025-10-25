@@ -10,7 +10,7 @@
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,7 +20,7 @@
       justify-content: center;
       padding: 20px;
     }
-    
+
     .container {
       background: white;
       border-radius: 20px;
@@ -29,25 +29,25 @@
       width: 100%;
       padding: 40px;
     }
-    
+
     h1 {
       color: #333;
       margin-bottom: 10px;
       font-size: 28px;
       text-align: center;
     }
-    
+
     .subtitle {
       color: #666;
       text-align: center;
       margin-bottom: 30px;
       font-size: 14px;
     }
-    
+
     .form-group {
       margin-bottom: 20px;
     }
-    
+
     label {
       display: block;
       color: #555;
@@ -55,7 +55,7 @@
       margin-bottom: 8px;
       font-size: 14px;
     }
-    
+
     input, select {
       width: 100%;
       padding: 12px 16px;
@@ -64,12 +64,12 @@
       font-size: 16px;
       transition: border-color 0.3s;
     }
-    
+
     input:focus, select:focus {
       outline: none;
       border-color: #667eea;
     }
-    
+
     .btn {
       width: 100%;
       padding: 14px;
@@ -83,53 +83,51 @@
       transition: transform 0.2s, box-shadow 0.2s;
       margin-top: 10px;
     }
-    
+
     .btn:hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
     }
-    
+
     .btn:active {
       transform: translateY(0);
     }
-    
+
     .btn:disabled {
       background: #ccc;
       cursor: not-allowed;
       transform: none;
     }
-    
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
     .message {
       padding: 15px;
       border-radius: 10px;
       margin-bottom: 20px;
       display: none;
     }
-    
+
     .message.success {
       background: #d4edda;
       color: #155724;
       border: 1px solid #c3e6cb;
     }
-    
+
     .message.error {
       background: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
-    
+
     .message.info {
       background: #d1ecf1;
       color: #0c5460;
       border: 1px solid #bee5eb;
     }
-    
-    .message.warning {
-      background: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeaa7;
-    }
-    
+
     .guest-info {
       background: #f8f9fa;
       padding: 20px;
@@ -137,34 +135,84 @@
       margin-top: 20px;
       display: none;
     }
-    
+
     .guest-info h2 {
       color: #333;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       font-size: 20px;
     }
-    
+
     .info-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #e0e0e0;
+      margin-bottom: 15px;
     }
-    
-    .info-row:last-child {
-      border-bottom: none;
-    }
-    
+
     .info-label {
       color: #666;
       font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
     }
-    
+
     .info-value {
       color: #333;
+      font-size: 18px;
+      font-weight: 600;
     }
-    
-    
+
+    .screen-name-display {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .screen-name-display .info-value {
+      flex: 1;
+    }
+
+    .edit-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .edit-btn:hover {
+      background: #5568d3;
+    }
+
+    .edit-section {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      background: #fff;
+      border: 2px solid #667eea;
+      border-radius: 10px;
+    }
+
+    .edit-section h3 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+
+    .photo-upload {
+      margin-top: 15px;
+    }
+
+    .photo-preview {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-top: 10px;
+      display: none;
+    }
+
     .spinner {
       border: 3px solid #f3f3f3;
       border-top: 3px solid #667eea;
@@ -175,7 +223,7 @@
       margin: 20px auto;
       display: none;
     }
-    
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -186,18 +234,9 @@
       color: #888;
       margin-top: 5px;
     }
-    
-    .debug-info {
-      background: #1a1a1a;
-      color: #00ff00;
-      padding: 10px;
-      border-radius: 5px;
-      font-family: monospace;
-      font-size: 11px;
-      margin-top: 10px;
-      display: none;
-      white-space: pre-wrap;
-      word-break: break-all;
+
+    input[type="file"] {
+      padding: 8px;
     }
   </style>
 </head>
@@ -205,21 +244,20 @@
   <div class="container">
     <h1>🎉 Guest Check-In</h1>
     <p class="subtitle">Please verify your identity to check in</p>
-    
+
     <div id="message" class="message"></div>
     <div id="spinner" class="spinner"></div>
-    <div id="debugInfo" class="debug-info"></div>
-    
+
     <!-- Check-In Form -->
     <form id="checkInForm">
       <div class="form-group">
-        <label for="zip">ZIP Code</label>
+        <label for="zip">ZIP Code *</label>
         <input type="text" id="zip" name="zip" placeholder="12345" maxlength="5" required>
         <div class="help-text">Enter your 5-digit ZIP code</div>
       </div>
-      
+
       <div class="form-group">
-        <label for="gender">Gender</label>
+        <label for="gender">Gender *</label>
         <select id="gender" name="gender" required>
           <option value="">Select your gender</option>
           <option value="man">Man</option>
@@ -228,108 +266,105 @@
           <option value="other">Other</option>
         </select>
       </div>
-      
+
       <div class="form-group">
-        <label for="dob">Birthday (MM/DD)</label>
+        <label for="dob">Birthday (MM/DD) *</label>
         <input type="text" id="dob" name="dob" placeholder="03/15" maxlength="5" required>
         <div class="help-text">Format: MM/DD (e.g., 03/15)</div>
       </div>
-      
+
       <button type="submit" class="btn" id="checkInBtn">Check In</button>
     </form>
-    
+
     <!-- Guest Info (shown after check-in) -->
     <div id="guestInfo" class="guest-info">
       <h2>✅ Checked In!</h2>
+
       <div class="info-row">
-        <span class="info-label">Screen Name:</span>
-        <span class="info-value" id="screenName"></span>
+        <div class="info-label">Your Screen Name</div>
+        <div class="screen-name-display">
+          <div class="info-value" id="screenNameDisplay"></div>
+          <button class="edit-btn" onclick="showEditScreenName()">Edit</button>
+        </div>
       </div>
+
       <div class="info-row">
-        <span class="info-label">UID:</span>
-        <span class="info-value" id="uid"></span>
+        <div class="info-label">Your UID</div>
+        <div class="info-value" id="uidDisplay"></div>
+      </div>
+
+      <div class="info-row">
+        <button class="btn btn-secondary" onclick="showPhotoUpload()">📷 Upload Photo</button>
+      </div>
+
+      <!-- Edit Screen Name Section -->
+      <div id="editScreenName" class="edit-section">
+        <h3>Change Your Screen Name</h3>
+        <div class="form-group">
+          <input type="text" id="newScreenName" placeholder="Enter new screen name" maxlength="50">
+          <div class="help-text">3-50 characters</div>
+        </div>
+        <button class="btn" onclick="updateScreenName()">Save New Name</button>
+        <button class="btn btn-secondary" onclick="hideEditScreenName()">Cancel</button>
+      </div>
+
+      <!-- Photo Upload Section -->
+      <div id="photoUploadSection" class="edit-section">
+        <h3>Upload Your Photo</h3>
+        <div class="form-group photo-upload">
+          <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto()">
+          <div class="help-text">Max 5MB, JPG or PNG</div>
+          <img id="photoPreview" class="photo-preview" alt="Photo preview">
+        </div>
+        <button class="btn" onclick="uploadPhoto()">Upload Photo</button>
+        <button class="btn btn-secondary" onclick="hidePhotoUpload()">Cancel</button>
       </div>
     </div>
   </div>
 
   <script>
     let currentGuest = null;
-    let debugMode = true; // Set to false to hide debug info
-    
-    function debugLog(message, data) {
-      if (!debugMode) return;
-      
-      const debugDiv = document.getElementById('debugInfo');
-      debugDiv.style.display = 'block';
-      
-      const timestamp = new Date().toLocaleTimeString();
-      let logMessage = `[${timestamp}] ${message}`;
-      
-      if (data !== undefined) {
-        logMessage += '\n' + JSON.stringify(data, null, 2);
-      }
-      
-      debugDiv.textContent += logMessage + '\n\n';
-      console.log(message, data);
-    }
-    
+
     // Check-In Form Handler
     document.getElementById('checkInForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      
+
       const zip = document.getElementById('zip').value.trim();
       const gender = document.getElementById('gender').value;
       const dob = document.getElementById('dob').value.trim();
-      
+
       // Validate DOB format
       if (!dob.match(/^\d{1,2}\/\d{1,2}$/)) {
         showMessage('Please use MM/DD format for birthday (e.g., 03/15)', 'error');
         return;
       }
-      
-      debugLog('Form values extracted', {zip, gender, dob});
-      
+
       showSpinner(true);
       showMessage('Checking you in...', 'info');
-      
-      // CRITICAL FIX: Pass as separate parameters, not as object
-      // Google Apps Script doesn't always serialize objects correctly
-      debugLog('Calling checkInGuest with separate parameters');
-      
+
       google.script.run
         .withSuccessHandler(onCheckInSuccess)
         .withFailureHandler(onCheckInError)
-        .checkInGuest(zip, gender, dob);  // Pass as SEPARATE parameters
+        .checkInGuest(zip, gender, dob);
     });
-    
+
     function onCheckInSuccess(result) {
       showSpinner(false);
-      
-      debugLog('Check-in response received', result);
-      
-      // Handle null or undefined result
-      if (!result) {
-        showMessage('⚠️ Backend returned no data. Check Apps Script logs for errors.', 'warning');
-        debugLog('ERROR: Result is null or undefined');
+
+      if (!result || result.ok === undefined) {
+        showMessage('Invalid response from server. Please try again.', 'error');
         return;
       }
-      
-      // Handle missing 'ok' property
-      if (result.ok === undefined) {
-        showMessage('⚠️ Invalid response format from backend', 'warning');
-        debugLog('ERROR: Response missing "ok" property', result);
-        return;
-      }
-      
+
       if (result.ok) {
         currentGuest = {
           screenName: result.screenName,
           uid: result.uid
         };
-        
-        document.getElementById('screenName').textContent = result.screenName || 'N/A';
-        document.getElementById('uid').textContent = result.uid || 'N/A';
-        
+
+        document.getElementById('screenNameDisplay').textContent = result.screenName || 'N/A';
+        document.getElementById('uidDisplay').textContent = result.uid || 'N/A';
+
         if (result.alreadyCheckedIn) {
           showMessage(result.message, 'info');
         } else {
@@ -343,11 +378,134 @@
         showMessage(result.message || 'Check-in failed. Please try again.', 'error');
       }
     }
-    
+
     function onCheckInError(error) {
       showSpinner(false);
       showMessage('Error: ' + error.message, 'error');
-      debugLog('Check-in error', error);
+    }
+
+    // Screen Name Edit Functions
+    function showEditScreenName() {
+      hidePhotoUpload();
+      document.getElementById('editScreenName').style.display = 'block';
+      document.getElementById('newScreenName').value = currentGuest.screenName;
+      document.getElementById('newScreenName').focus();
+    }
+
+    function hideEditScreenName() {
+      document.getElementById('editScreenName').style.display = 'none';
+    }
+
+    function updateScreenName() {
+      const newName = document.getElementById('newScreenName').value.trim();
+
+      if (!newName) {
+        showMessage('Please enter a screen name', 'error');
+        return;
+      }
+
+      if (newName.length < 3 || newName.length > 50) {
+        showMessage('Screen name must be 3-50 characters', 'error');
+        return;
+      }
+
+      showSpinner(true);
+      showMessage('Updating screen name...', 'info');
+
+      google.script.run
+        .withSuccessHandler(onScreenNameUpdateSuccess)
+        .withFailureHandler(onScreenNameUpdateError)
+        .updateGuestScreenName(currentGuest.uid, newName);
+    }
+
+    function onScreenNameUpdateSuccess(result) {
+      showSpinner(false);
+
+      if (result && result.ok) {
+        currentGuest.screenName = result.newScreenName;
+        document.getElementById('screenNameDisplay').textContent = result.newScreenName;
+        showMessage(result.message, 'success');
+        hideEditScreenName();
+      } else {
+        showMessage(result.message || 'Update failed', 'error');
+      }
+    }
+
+    function onScreenNameUpdateError(error) {
+      showSpinner(false);
+      showMessage('Error: ' + error.message, 'error');
+    }
+
+    // Photo Upload Functions
+    function showPhotoUpload() {
+      hideEditScreenName();
+      document.getElementById('photoUploadSection').style.display = 'block';
+    }
+
+    function hidePhotoUpload() {
+      document.getElementById('photoUploadSection').style.display = 'none';
+      document.getElementById('photoInput').value = '';
+      document.getElementById('photoPreview').style.display = 'none';
+    }
+
+    function previewPhoto() {
+      const file = document.getElementById('photoInput').files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        showMessage('Photo must be less than 5MB', 'error');
+        document.getElementById('photoInput').value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('photoPreview');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function uploadPhoto() {
+      const fileInput = document.getElementById('photoInput');
+      if (!fileInput.files || !fileInput.files[0]) {
+        showMessage('Please select a photo first', 'error');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      showSpinner(true);
+      showMessage('Uploading photo...', 'info');
+
+      reader.onload = function(e) {
+        const base64Data = e.target.result.split(',')[1];
+
+        google.script.run
+          .withSuccessHandler(onPhotoUploadSuccess)
+          .withFailureHandler(onPhotoUploadError)
+          .uploadGuestPhoto(currentGuest.uid, file.name, file.type, base64Data);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    function onPhotoUploadSuccess(result) {
+      showSpinner(false);
+
+      if (result && result.ok) {
+        showMessage(result.message, 'success');
+        hidePhotoUpload();
+      } else {
+        showMessage(result.message || 'Upload failed', 'error');
+      }
+    }
+
+    function onPhotoUploadError(error) {
+      showSpinner(false);
+      showMessage('Error: ' + error.message, 'error');
     }
 
     // Utility Functions
@@ -357,7 +515,7 @@
       msgDiv.className = 'message ' + type;
       msgDiv.style.display = 'block';
     }
-    
+
     function showSpinner(show) {
       document.getElementById('spinner').style.display = show ? 'block' : 'none';
     }
