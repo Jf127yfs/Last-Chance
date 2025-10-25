@@ -159,8 +159,32 @@
       font-size: 24px;
       font-weight: 600;
       color: #667eea;
+      margin-bottom: 10px;
+      border: 2px solid #e0e0e0;
+    }
+
+    .uid-display {
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 14px;
+      color: #888;
       margin-bottom: 15px;
       border: 2px solid #e0e0e0;
+    }
+
+    .uid-display .uid-label {
+      font-size: 12px;
+      color: #999;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .uid-display .uid-value {
+      font-family: 'Courier New', monospace;
+      color: #666;
+      font-weight: 500;
     }
 
     .edit-section {
@@ -274,8 +298,12 @@
     <!-- Guest Section (shown after verification) -->
     <div id="guestSection" class="guest-section">
       <div class="screen-name-box">
-        <h2>Your Screen Name</h2>
+        <h2>Your Profile</h2>
         <div class="screen-name-display" id="screenNameDisplay"></div>
+        <div class="uid-display">
+          <div class="uid-label">Your UID</div>
+          <div class="uid-value" id="uidDisplay"></div>
+        </div>
 
         <div class="action-buttons">
           <button class="btn btn-secondary" onclick="showEditSection()">✏️ Edit Name</button>
@@ -351,6 +379,7 @@
         };
 
         document.getElementById('screenNameDisplay').textContent = result.screenName || 'N/A';
+        document.getElementById('uidDisplay').textContent = result.uid || 'N/A';
         showMessage('✅ Verified! Welcome, ' + result.screenName, 'success');
 
         // Hide form, show guest section
