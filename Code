@@ -631,8 +631,8 @@ function buildDanceTeams(numTeams) {
     const TEAM_SIZE = 6;
 
     for (let i = 0; i < numTeams; i++) {
-      // Shuffle guests for random selection
-      const shuffled = guests.sort(() => Math.random() - 0.5);
+      // Shuffle guests for random selection (create copy to avoid mutation)
+      const shuffled = [...guests].sort(() => Math.random() - 0.5);
       const teamMembers = shuffled.slice(0, TEAM_SIZE);
 
       if (teamMembers.length < TEAM_SIZE) {
