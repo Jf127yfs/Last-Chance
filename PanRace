@@ -696,7 +696,10 @@
 
         if (racer.photoUrl) {
           card.innerHTML = `
-            <img src="${escapeHtml(racer.photoUrl)}" class="racer-photo" alt="${escapeHtml(racer.screenName)}">
+            <img src="${escapeHtml(racer.photoUrl)}"
+                 class="racer-photo"
+                 alt="${escapeHtml(racer.screenName)}"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'racer-photo-placeholder\\'>🏁</div><div class=\\'racer-card-name\\'>${escapeHtml(racer.screenName)}</div>';">
             <div class="racer-card-name">${escapeHtml(racer.screenName)}</div>
           `;
         } else {
