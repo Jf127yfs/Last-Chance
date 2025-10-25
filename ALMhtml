@@ -187,6 +187,16 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
+    }
+
+    .tracker-member-photo .img-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--purple);
+      font-size: 20px;
     }
 
     .tracker-member-name {
@@ -488,6 +498,17 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
+    }
+
+    .dancer-photo .img-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: var(--purple);
     }
 
     .dancer-photo-placeholder {
@@ -1076,7 +1097,9 @@
       <div class="abby-photo-box">
         <h3>👑 THE BOSS</h3>
         <div class="abby-static-photo">
-          <img src="https://drive.google.com/thumbnail?id=12D1-rsoZcOTl0bFtMYEJOUCvAEWBbyI6&sz=w500" alt="Abby Lee Miller">
+          <img src="https://drive.google.com/thumbnail?id=12D1-rsoZcOTl0bFtMYEJOUCvAEWBbyI6&sz=w500"
+               alt="Abby Lee Miller"
+               onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:var(--purple);font-size:60px;\\'>👑</div>';">
         </div>
       </div>
 
@@ -1091,7 +1114,9 @@
       <!-- Abby's Verdict -->
       <div class="abby-verdict" id="abbyVerdict">
         <div class="abby-photo">
-          <img src="https://drive.google.com/thumbnail?id=12D1-rsoZcOTl0bFtMYEJOUCvAEWBbyI6&sz=w500" alt="Abby Lee Miller">
+          <img src="https://drive.google.com/thumbnail?id=12D1-rsoZcOTl0bFtMYEJOUCvAEWBbyI6&sz=w500"
+               alt="Abby Lee Miller"
+               onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:var(--gold);font-size:40px;\\'>👑</div>';">
         </div>
         <div class="abby-quote-container">
           <div class="abby-label">💬 ABBY'S VERDICT:</div>
@@ -1256,8 +1281,10 @@
                 <div class="tracker-member">
                   <div class="tracker-member-photo ${idx === 0 ? 'focal' : ''}">
                     ${member.photoUrl
-                      ? `<img src="${escapeHtml(member.photoUrl)}" alt="${escapeHtml(member.screenName)}">`
-                      : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--purple);font-size:20px;">👤</div>'
+                      ? `<img src="${escapeHtml(member.photoUrl)}"
+                             alt="${escapeHtml(member.screenName)}"
+                             onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'img-fallback\\'>👤</div>';">`
+                      : '<div class="img-fallback">👤</div>'
                     }
                   </div>
                   <div class="tracker-member-name">${escapeHtml(member.screenName)}</div>
@@ -1286,8 +1313,10 @@
                 <div class="tracker-member">
                   <div class="tracker-member-photo ${idx === 0 ? 'focal' : ''}">
                     ${member.photoUrl
-                      ? `<img src="${escapeHtml(member.photoUrl)}" alt="${escapeHtml(member.screenName)}">`
-                      : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--purple);font-size:20px;">👤</div>'
+                      ? `<img src="${escapeHtml(member.photoUrl)}"
+                             alt="${escapeHtml(member.screenName)}"
+                             onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'img-fallback\\'>👤</div>';">`
+                      : '<div class="img-fallback">👤</div>'
                     }
                   </div>
                   <div class="tracker-member-name">${escapeHtml(member.screenName)}</div>
@@ -1768,8 +1797,10 @@
           ${rankBadge}
           <div class="dancer-photo">
             ${dancer.photoUrl
-              ? `<img src="${escapeHtml(dancer.photoUrl)}" alt="${escapeHtml(dancer.screenName)}">`
-              : '<div class="dancer-photo-placeholder">👤</div>'
+              ? `<img src="${escapeHtml(dancer.photoUrl)}"
+                     alt="${escapeHtml(dancer.screenName)}"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'img-fallback\\'>👤</div>';">`
+              : '<div class="img-fallback">👤</div>'
             }
           </div>
           <div class="dancer-name">${escapeHtml(dancer.screenName)}</div>
