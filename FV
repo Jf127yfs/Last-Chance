@@ -1195,16 +1195,6 @@
                 };
                 villagers.push(v);
                 createVillager(v);
-
-                // Welcome announcement with occupation/location context
-                if (v.isWitch) {
-                    log(`🔮 @${v.screenName} has been exiled to the Witches' Woods (${v.ddd} DDD violations)`, true);
-                } else if (v.industry) {
-                    const locName = LOCATIONS[v.location].name;
-                    log(`✨ @${v.screenName} (${v.industry}) arrived at the ${locName}`);
-                } else {
-                    log(`✨ @${v.screenName} arrived in the village`);
-                }
             });
             updateStats();
             checkCurse();
