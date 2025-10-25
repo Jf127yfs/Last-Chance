@@ -242,8 +242,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎉 Guest Check-In</h1>
-    <p class="subtitle">Please verify your identity to check in</p>
+    <h1>🎉 Guest Portal</h1>
+    <p class="subtitle">Verify your identity to access your profile</p>
 
     <div id="message" class="message"></div>
     <div id="spinner" class="spinner"></div>
@@ -273,12 +273,12 @@
         <div class="help-text">Format: MM/DD (e.g., 03/15)</div>
       </div>
 
-      <button type="submit" class="btn" id="checkInBtn">Check In</button>
+      <button type="submit" class="btn" id="checkInBtn">Verify Identity</button>
     </form>
 
-    <!-- Guest Info (shown after check-in) -->
+    <!-- Guest Info (shown after verification) -->
     <div id="guestInfo" class="guest-info">
-      <h2>✅ Checked In!</h2>
+      <h2>✅ Verified!</h2>
 
       <div class="info-row">
         <div class="info-label">Your Screen Name</div>
@@ -340,7 +340,7 @@
       }
 
       showSpinner(true);
-      showMessage('Checking you in...', 'info');
+      showMessage('Verifying identity...', 'info');
 
       google.script.run
         .withSuccessHandler(onCheckInSuccess)
@@ -365,17 +365,13 @@
         document.getElementById('screenNameDisplay').textContent = result.screenName || 'N/A';
         document.getElementById('uidDisplay').textContent = result.uid || 'N/A';
 
-        if (result.alreadyCheckedIn) {
-          showMessage(result.message, 'info');
-        } else {
-          showMessage(result.message, 'success');
-        }
+        showMessage(result.message, 'success');
 
         // Hide form, show guest info
         document.getElementById('checkInForm').style.display = 'none';
         document.getElementById('guestInfo').style.display = 'block';
       } else {
-        showMessage(result.message || 'Check-in failed. Please try again.', 'error');
+        showMessage(result.message || 'Verification failed. Please try again.', 'error');
       }
     }
 
