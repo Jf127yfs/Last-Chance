@@ -132,90 +132,35 @@
       border: 1px solid #bee5eb;
     }
 
-    .message.warning {
-      background: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeaa7;
+    .guest-section {
+      display: none;
+      margin-top: 20px;
     }
 
-    .guest-info {
+    .screen-name-box {
       background: #f8f9fa;
       padding: 20px;
       border-radius: 10px;
-      margin-top: 20px;
-      display: none;
+      margin-bottom: 20px;
     }
 
-    .guest-info h2 {
+    .screen-name-box h2 {
       color: #333;
       margin-bottom: 15px;
       font-size: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .status-badge.checked-in {
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .status-badge.not-checked-in {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .info-row {
-      margin-bottom: 15px;
-    }
-
-    .info-label {
-      color: #666;
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      margin-bottom: 5px;
-    }
-
-    .info-value {
-      color: #333;
-      font-size: 18px;
-      font-weight: 600;
+      text-align: center;
     }
 
     .screen-name-display {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .screen-name-display .info-value {
-      flex: 1;
-    }
-
-    .edit-btn {
-      background: #667eea;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 24px;
       font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .edit-btn:hover {
-      background: #5568d3;
+      color: #667eea;
+      margin-bottom: 15px;
+      border: 2px solid #e0e0e0;
     }
 
     .edit-section {
@@ -233,13 +178,18 @@
       font-size: 16px;
     }
 
-    .photo-upload {
-      margin-top: 15px;
+    .photo-section {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      background: #fff;
+      border: 2px solid #11998e;
+      border-radius: 10px;
     }
 
     .photo-preview-container {
-      margin-top: 15px;
       text-align: center;
+      margin-top: 15px;
     }
 
     .photo-preview {
@@ -250,15 +200,6 @@
       margin: 10px auto;
       display: none;
       border: 3px solid #667eea;
-    }
-
-    .current-photo {
-      width: 100px;
-      height: 100px;
-      object-fit: cover;
-      border-radius: 50%;
-      border: 3px solid #667eea;
-      margin: 10px 0;
     }
 
     .spinner {
@@ -291,85 +232,72 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-top: 15px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🎉 Guest Portal</h1>
-    <p class="subtitle">Find your profile by screen name</p>
+    <p class="subtitle">Verify your identity to access your profile</p>
 
     <div id="message" class="message"></div>
     <div id="spinner" class="spinner"></div>
 
-    <!-- Search Form -->
-    <form id="searchForm">
+    <!-- Verification Form -->
+    <form id="verifyForm">
       <div class="form-group">
-        <label for="screenName">Your Screen Name *</label>
-        <input type="text" id="screenName" name="screenName" placeholder="Enter your screen name" required autocomplete="off">
-        <div class="help-text">Type the screen name you registered with</div>
+        <label for="zip">ZIP Code *</label>
+        <input type="text" id="zip" name="zip" placeholder="12345" maxlength="5" required>
+        <div class="help-text">Enter your 5-digit ZIP code</div>
       </div>
 
-      <button type="submit" class="btn" id="searchBtn">Find My Profile</button>
+      <div class="form-group">
+        <label for="gender">Gender *</label>
+        <select id="gender" name="gender" required>
+          <option value="">Select your gender</option>
+          <option value="man">Man</option>
+          <option value="woman">Woman</option>
+          <option value="nonbinary">Non-binary</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="dob">Birthday (MM/DD) *</label>
+        <input type="text" id="dob" name="dob" placeholder="03/15" maxlength="5" required>
+        <div class="help-text">Format: MM/DD (e.g., 03/15)</div>
+      </div>
+
+      <button type="submit" class="btn">Verify Identity</button>
     </form>
 
-    <!-- Guest Info (shown after search) -->
-    <div id="guestInfo" class="guest-info">
-      <h2>
-        <span id="guestIcon">👤</span>
-        <span id="guestNameTitle"></span>
-        <span id="statusBadge" class="status-badge"></span>
-      </h2>
+    <!-- Guest Section (shown after verification) -->
+    <div id="guestSection" class="guest-section">
+      <div class="screen-name-box">
+        <h2>Your Screen Name</h2>
+        <div class="screen-name-display" id="screenNameDisplay"></div>
 
-      <div class="info-row">
-        <div class="info-label">Screen Name</div>
-        <div class="screen-name-display">
-          <div class="info-value" id="screenNameDisplay"></div>
-          <button class="edit-btn" onclick="showEditScreenName()">Edit</button>
+        <div class="action-buttons">
+          <button class="btn btn-secondary" onclick="showEditSection()">✏️ Edit Name</button>
+          <button class="btn btn-success" onclick="showPhotoSection()">📷 Upload Photo</button>
         </div>
       </div>
-
-      <div class="info-row">
-        <div class="info-label">UID</div>
-        <div class="info-value" id="uidDisplay"></div>
-      </div>
-
-      <div class="info-row">
-        <div class="info-label">Check-In Status</div>
-        <div class="info-value" id="checkinStatus"></div>
-      </div>
-
-      <div id="photoSection" class="info-row">
-        <div class="info-label">Current Photo</div>
-        <div class="photo-preview-container">
-          <img id="currentPhoto" class="current-photo" alt="Your photo">
-          <div id="noPhoto" style="color: #999; font-size: 14px; display: none;">No photo uploaded yet</div>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <button class="btn btn-secondary" onclick="showEditScreenName()">✏️ Edit Name</button>
-        <button class="btn btn-success" onclick="showPhotoUpload()">📷 Upload Photo</button>
-      </div>
-
-      <button class="btn" style="margin-top: 15px;" onclick="searchAnother()">🔍 Search Another Guest</button>
 
       <!-- Edit Screen Name Section -->
-      <div id="editScreenName" class="edit-section">
+      <div id="editSection" class="edit-section">
         <h3>Change Your Screen Name</h3>
         <div class="form-group">
           <input type="text" id="newScreenName" placeholder="Enter new screen name" maxlength="50">
           <div class="help-text">3-50 characters</div>
         </div>
         <button class="btn" onclick="updateScreenName()">💾 Save New Name</button>
-        <button class="btn btn-secondary" onclick="hideEditScreenName()">Cancel</button>
+        <button class="btn btn-secondary" onclick="hideEditSection()">Cancel</button>
       </div>
 
       <!-- Photo Upload Section -->
-      <div id="photoUploadSection" class="edit-section">
+      <div id="photoSection" class="photo-section">
         <h3>Upload Your Photo</h3>
-        <div class="form-group photo-upload">
+        <div class="form-group">
           <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto()">
           <div class="help-text">Max 5MB, JPG or PNG recommended</div>
           <div class="photo-preview-container">
@@ -377,7 +305,7 @@
           </div>
         </div>
         <button class="btn" onclick="uploadPhoto()">📤 Upload Photo</button>
-        <button class="btn btn-secondary" onclick="hidePhotoUpload()">Cancel</button>
+        <button class="btn btn-secondary" onclick="hidePhotoSection()">Cancel</button>
       </div>
     </div>
   </div>
@@ -385,105 +313,69 @@
   <script>
     let currentGuest = null;
 
-    // Search Form Handler
-    document.getElementById('searchForm').addEventListener('submit', function(e) {
+    // Verify Form Handler
+    document.getElementById('verifyForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
-      const screenName = document.getElementById('screenName').value.trim();
+      const zip = document.getElementById('zip').value.trim();
+      const gender = document.getElementById('gender').value;
+      const dob = document.getElementById('dob').value.trim();
 
-      if (!screenName) {
-        showMessage('Please enter a screen name', 'error');
+      // Validate DOB format
+      if (!dob.match(/^\d{1,2}\/\d{1,2}$/)) {
+        showMessage('Please use MM/DD format for birthday (e.g., 03/15)', 'error');
         return;
       }
 
       showSpinner(true);
-      showMessage('Searching for ' + screenName + '...', 'info');
+      showMessage('Verifying identity...', 'info');
 
       google.script.run
-        .withSuccessHandler(onSearchSuccess)
-        .withFailureHandler(onSearchError)
-        .findGuestByScreenName(screenName);
+        .withSuccessHandler(onVerifySuccess)
+        .withFailureHandler(onVerifyError)
+        .checkInGuest(zip, gender, dob);
     });
 
-    function onSearchSuccess(result) {
+    function onVerifySuccess(result) {
       showSpinner(false);
 
-      if (!result || !result.ok) {
-        showMessage(result?.message || 'Guest not found. Please check the screen name and try again.', 'error');
+      if (!result || result.ok === undefined) {
+        showMessage('Invalid response from server. Please try again.', 'error');
         return;
       }
 
-      currentGuest = {
-        screenName: result.screenName,
-        uid: result.uid,
-        checkedIn: result.checkedIn,
-        photoUrl: result.photoUrl
-      };
+      if (result.ok) {
+        currentGuest = {
+          screenName: result.screenName,
+          uid: result.uid
+        };
 
-      // Update display
-      document.getElementById('guestNameTitle').textContent = result.screenName;
-      document.getElementById('screenNameDisplay').textContent = result.screenName;
-      document.getElementById('uidDisplay').textContent = result.uid;
+        document.getElementById('screenNameDisplay').textContent = result.screenName || 'N/A';
+        showMessage('✅ Verified! Welcome, ' + result.screenName, 'success');
 
-      // Update check-in status
-      const statusBadge = document.getElementById('statusBadge');
-      const statusText = document.getElementById('checkinStatus');
-
-      if (result.checkedIn) {
-        statusBadge.textContent = 'Checked In';
-        statusBadge.className = 'status-badge checked-in';
-        statusText.textContent = '✅ Checked in at ' + (result.checkInTime || 'Unknown time');
-        statusText.style.color = '#155724';
+        // Hide form, show guest section
+        document.getElementById('verifyForm').style.display = 'none';
+        document.getElementById('guestSection').style.display = 'block';
       } else {
-        statusBadge.textContent = 'Not Checked In';
-        statusBadge.className = 'status-badge not-checked-in';
-        statusText.textContent = '⏳ Not yet checked in';
-        statusText.style.color = '#856404';
+        showMessage(result.message || 'Verification failed. Please check your information and try again.', 'error');
       }
-
-      // Update photo display
-      if (result.photoUrl) {
-        document.getElementById('currentPhoto').src = result.photoUrl;
-        document.getElementById('currentPhoto').style.display = 'block';
-        document.getElementById('noPhoto').style.display = 'none';
-      } else {
-        document.getElementById('currentPhoto').style.display = 'none';
-        document.getElementById('noPhoto').style.display = 'block';
-      }
-
-      showMessage('✅ Found guest: ' + result.screenName, 'success');
-
-      // Hide form, show guest info
-      document.getElementById('searchForm').style.display = 'none';
-      document.getElementById('guestInfo').style.display = 'block';
     }
 
-    function onSearchError(error) {
+    function onVerifyError(error) {
       showSpinner(false);
       showMessage('Error: ' + error.message, 'error');
     }
 
-    function searchAnother() {
-      // Reset form
-      document.getElementById('searchForm').style.display = 'block';
-      document.getElementById('guestInfo').style.display = 'none';
-      document.getElementById('screenName').value = '';
-      document.getElementById('message').style.display = 'none';
-      currentGuest = null;
-      hideEditScreenName();
-      hidePhotoUpload();
-    }
-
     // Screen Name Edit Functions
-    function showEditScreenName() {
-      hidePhotoUpload();
-      document.getElementById('editScreenName').style.display = 'block';
+    function showEditSection() {
+      hidePhotoSection();
+      document.getElementById('editSection').style.display = 'block';
       document.getElementById('newScreenName').value = currentGuest.screenName;
       document.getElementById('newScreenName').focus();
     }
 
-    function hideEditScreenName() {
-      document.getElementById('editScreenName').style.display = 'none';
+    function hideEditSection() {
+      document.getElementById('editSection').style.display = 'none';
     }
 
     function updateScreenName() {
@@ -514,9 +406,8 @@
       if (result && result.ok) {
         currentGuest.screenName = result.newScreenName;
         document.getElementById('screenNameDisplay').textContent = result.newScreenName;
-        document.getElementById('guestNameTitle').textContent = result.newScreenName;
         showMessage('✅ Screen name updated successfully!', 'success');
-        hideEditScreenName();
+        hideEditSection();
       } else {
         showMessage(result?.message || 'Update failed', 'error');
       }
@@ -528,13 +419,13 @@
     }
 
     // Photo Upload Functions
-    function showPhotoUpload() {
-      hideEditScreenName();
-      document.getElementById('photoUploadSection').style.display = 'block';
+    function showPhotoSection() {
+      hideEditSection();
+      document.getElementById('photoSection').style.display = 'block';
     }
 
-    function hidePhotoUpload() {
-      document.getElementById('photoUploadSection').style.display = 'none';
+    function hidePhotoSection() {
+      document.getElementById('photoSection').style.display = 'none';
       document.getElementById('photoInput').value = '';
       document.getElementById('photoPreview').style.display = 'none';
     }
@@ -588,16 +479,7 @@
 
       if (result && result.ok) {
         showMessage('✅ Photo uploaded successfully!', 'success');
-
-        // Update current photo display
-        if (result.photoUrl) {
-          currentGuest.photoUrl = result.photoUrl;
-          document.getElementById('currentPhoto').src = result.photoUrl;
-          document.getElementById('currentPhoto').style.display = 'block';
-          document.getElementById('noPhoto').style.display = 'none';
-        }
-
-        hidePhotoUpload();
+        hidePhotoSection();
       } else {
         showMessage(result?.message || 'Upload failed', 'error');
       }
