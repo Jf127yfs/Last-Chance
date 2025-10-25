@@ -419,7 +419,7 @@ function listAllSheets() {
 }
 
 /**
- * Gets all checked-in guests from FRC
+ * Gets all guests from FRC (analytics run on all 92 guests)
  */
 function getCheckedInGuests() {
   const sheet = getFRCSheet();
@@ -430,47 +430,44 @@ function getCheckedInGuests() {
   // Skip header row (index 0)
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const checkedIn = String(row[CONFIG.COL.CHECKED_IN] || '').trim();
-    
-    // Only include guests with "Y" in Checked-In column
-    if (checkedIn === 'Y' || checkedIn === 'Yes') {
-      guests.push({
-        rowIndex: i,
-        timestamp: row[CONFIG.COL.TIMESTAMP],
-        birthday: row[CONFIG.COL.BIRTHDAY],
-        zodiac: row[CONFIG.COL.ZODIAC],
-        age: row[CONFIG.COL.AGE],
-        education: row[CONFIG.COL.EDU],
-        zip: row[CONFIG.COL.ZIP],
-        ethnicity: row[CONFIG.COL.ETHNICITY],
-        gender: row[CONFIG.COL.GENDER],
-        orientation: row[CONFIG.COL.ORIENTATION],
-        industry: row[CONFIG.COL.INDUSTRY],
-        role: row[CONFIG.COL.ROLE],
-        knowHosts: row[CONFIG.COL.KNOW_HOSTS],
-        knownLongest: row[CONFIG.COL.KNOWN_LONGEST],
-        knowScore: row[CONFIG.COL.KNOW_SCORE],
-        interestsRaw: row[CONFIG.COL.INTERESTS_RAW],
-        interest1: row[CONFIG.COL.INTEREST_1],
-        interest2: row[CONFIG.COL.INTEREST_2],
-        interest3: row[CONFIG.COL.INTEREST_3],
-        music: row[CONFIG.COL.MUSIC],
-        artist: row[CONFIG.COL.ARTIST],
-        song: row[CONFIG.COL.SONG],
-        recentPurchase: row[CONFIG.COL.RECENT_PURCHASE],
-        atWorst: row[CONFIG.COL.AT_WORST],
-        socialStance: row[CONFIG.COL.SOCIAL_STANCE],
-        screenName: row[CONFIG.COL.SCREEN_NAME],
-        uid: row[CONFIG.COL.UID],
-        dddScore: row[CONFIG.COL.DDD_SCORE],
-        checkedIn: row[CONFIG.COL.CHECKED_IN],
-        checkInTime: row[CONFIG.COL.CHECKIN_TIME],
-        photoUrl: row[CONFIG.COL.PHOTO_URL]
-      });
-    }
+
+    // Include all guests (removed check-in filter to run analytics on all 92 guests)
+    guests.push({
+      rowIndex: i,
+      timestamp: row[CONFIG.COL.TIMESTAMP],
+      birthday: row[CONFIG.COL.BIRTHDAY],
+      zodiac: row[CONFIG.COL.ZODIAC],
+      age: row[CONFIG.COL.AGE],
+      education: row[CONFIG.COL.EDU],
+      zip: row[CONFIG.COL.ZIP],
+      ethnicity: row[CONFIG.COL.ETHNICITY],
+      gender: row[CONFIG.COL.GENDER],
+      orientation: row[CONFIG.COL.ORIENTATION],
+      industry: row[CONFIG.COL.INDUSTRY],
+      role: row[CONFIG.COL.ROLE],
+      knowHosts: row[CONFIG.COL.KNOW_HOSTS],
+      knownLongest: row[CONFIG.COL.KNOWN_LONGEST],
+      knowScore: row[CONFIG.COL.KNOW_SCORE],
+      interestsRaw: row[CONFIG.COL.INTERESTS_RAW],
+      interest1: row[CONFIG.COL.INTEREST_1],
+      interest2: row[CONFIG.COL.INTEREST_2],
+      interest3: row[CONFIG.COL.INTEREST_3],
+      music: row[CONFIG.COL.MUSIC],
+      artist: row[CONFIG.COL.ARTIST],
+      song: row[CONFIG.COL.SONG],
+      recentPurchase: row[CONFIG.COL.RECENT_PURCHASE],
+      atWorst: row[CONFIG.COL.AT_WORST],
+      socialStance: row[CONFIG.COL.SOCIAL_STANCE],
+      screenName: row[CONFIG.COL.SCREEN_NAME],
+      uid: row[CONFIG.COL.UID],
+      dddScore: row[CONFIG.COL.DDD_SCORE],
+      checkedIn: row[CONFIG.COL.CHECKED_IN],
+      checkInTime: row[CONFIG.COL.CHECKIN_TIME],
+      photoUrl: row[CONFIG.COL.PHOTO_URL]
+    });
   }
-  
-  Logger.log(`✅ Found ${guests.length} checked-in guests`);
+
+  Logger.log(`✅ Found ${guests.length} total guests`);
   return guests;
 }
 
@@ -671,20 +668,20 @@ function testCheckInSystem() {
       // We're in UI context - show alert
       ui.alert(
         '✅ Check-In System Test',
-        `Found ${guests.length} checked-in guests.\n\n` +
-        (guests.length > 0 ? 
+        `Found ${guests.length} total guests.\n\n` +
+        (guests.length > 0 ?
           `Sample guest:\n` +
           `- Screen Name: ${guests[0].screenName}\n` +
           `- UID: ${guests[0].uid}\n` +
           `- Check-in Time: ${guests[0].checkInTime}\n` +
-          `- Photo: ${guests[0].photoUrl ? 'Yes' : 'No'}` 
-          : 'No checked-in guests found.'),
+          `- Photo: ${guests[0].photoUrl ? 'Yes' : 'No'}`
+          : 'No guests found.'),
         ui.ButtonSet.OK
       );
     } catch (uiError) {
       // We're in web app context - just log and return result
       Logger.log('✅ Check-In System Test');
-      Logger.log(`Found ${guests.length} checked-in guests`);
+      Logger.log(`Found ${guests.length} total guests`);
       if (guests.length > 0) {
         Logger.log('Sample guest: ' + JSON.stringify(guests[0], null, 2));
       }
@@ -1158,11 +1155,10 @@ function getActiveVillagersForMap() {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const screenName = String(row[screenNameIdx] || '').trim();
-      const checkedIn = String(row[checkedInIdx] || '').trim().toUpperCase();
       const ddd = frcIdx >= 0 ? (parseInt(row[frcIdx]) || 0) : 0;
 
-      // Only include checked-in guests with screen names
-      if ((checkedIn === 'Y' || checkedIn === 'YES') && screenName) {
+      // Include all guests with screen names (removed check-in filter)
+      if (screenName) {
         villagers.push({
           screenName: screenName,
           ddd: ddd
@@ -1170,7 +1166,7 @@ function getActiveVillagersForMap() {
       }
     }
 
-    Logger.log(`FV: Found ${villagers.length} checked-in villagers`);
+    Logger.log(`FV: Found ${villagers.length} total villagers`);
 
     return {
       success: true,

@@ -16,9 +16,9 @@
  */
 function getWallData() {
   Logger.log('=== FETCHING WALL DATA ===');
-  
+
   const guests = getCheckedInGuests();
-  Logger.log(`Retrieved ${guests.length} checked-in guests`);
+  Logger.log(`Retrieved ${guests.length} total guests`);
   
   // Identify unknown guests (don't know hosts)
   const unknownGuests = guests.filter(g => {
@@ -448,10 +448,10 @@ function buildCompatibilityConnections(guests) {
       uidToIndex[String(uid)] = i;
     });
 
-    // Get checked-in UIDs
+    // Get all guest UIDs
     const checkedInUids = guests.map(g => String(g.uid));
 
-    // Extract similarity pairs for checked-in guests
+    // Extract similarity pairs for all guests
     const matches = [];
 
     for (let i = 0; i < checkedInUids.length; i++) {

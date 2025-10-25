@@ -117,23 +117,23 @@ function testWithRealData() {
 // ============================================================================
 
 /**
- * Analyze checked-in guests and their data completeness
+ * Analyze all guests and their data completeness
  *
  * FUNCTION PURPOSE:
- * - Counts total checked-in guests
+ * - Counts total guests
  * - Shows sample guest data structure
  * - Reports data completeness (photos, interests, music)
  *
- * DATA SOURCE: FRC sheet, Column AB (Checked-In = "Y")
+ * DATA SOURCE: FRC sheet (all guests)
  *
  * @returns {Object} Analysis results with total count and sample guest
  */
 function analyzeCheckedInGuests() {
-  Logger.log('=== ANALYZING CHECKED-IN GUESTS ===\n');
+  Logger.log('=== ANALYZING ALL GUESTS ===\n');
 
   const guests = getCheckedInGuests();
 
-  Logger.log(`Total checked-in guests: ${guests.length}`);
+  Logger.log(`Total guests: ${guests.length}`);
 
   if (guests.length > 0) {
     Logger.log('\n=== SAMPLE GUEST DATA ===');

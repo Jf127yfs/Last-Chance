@@ -168,17 +168,15 @@ function getActiveVillagers() {
       worstTrait: sourceRow[sourceHeaders.indexOf("At your worst you are...")],
       socialStance: sourceRow[sourceHeaders.indexOf('Which best describes your general social stance?')],
       zodiac: sourceRow[sourceHeaders.indexOf('Zodiac Sign')],
-      
+
       // Will be assigned
       hamlet: null,
       position: null,
       connections: []
     };
 
-    // Only include checked-in villagers (handle both 'Y' and 'YES')
-    if (villager.checkedIn === 'Y' || villager.checkedIn === 'YES') {
-      villagers.push(villager);
-    }
+    // Include all villagers (removed check-in filter to run analytics on all guests)
+    villagers.push(villager);
   }
   
   return villagers;

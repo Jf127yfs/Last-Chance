@@ -22,7 +22,7 @@
 /**
  * Get compatibility matches for MM page
  *
- * Reads from Guest_Similarity matrix and filters to checked-in guests only.
+ * Reads from Guest_Similarity matrix for all guests.
  * Returns top 100 match pairs sorted by similarity with shared interests.
  *
  * @return {Object} {matches: Array, totalGuests: Number}
@@ -42,12 +42,12 @@ function getCompatibilityMatches() {
       };
     }
 
-    // Load checked-in guests using shared helper for consistency
+    // Load all guests using shared helper for consistency
     let guests;
     try {
       guests = getCheckedInGuests();
     } catch (error) {
-      Logger.log('❌ Failed to load checked-in guests: ' + error.message);
+      Logger.log('❌ Failed to load guests: ' + error.message);
       return {
         matches: [],
         totalGuests: 0,
@@ -55,14 +55,14 @@ function getCompatibilityMatches() {
       };
     }
 
-    // Build map of checked-in guests with their data
+    // Build map of all guests with their data
     // KEY CHANGE: Use UID as the key (not Screen Name) because Screen Names can change in FRC
     const checkedInGuests = {};
     const uidOccurrences = {}; // Track duplicate UIDs
     let skippedNoName = 0;
     let skippedNoUID = 0;
 
-    Logger.log('🔍 Processing checked-in guests from helper...');
+    Logger.log('🔍 Processing all guests from helper...');
 
     guests.forEach(guest => {
       const screenName = String(guest.screenName || '').trim();
@@ -70,13 +70,13 @@ function getCompatibilityMatches() {
 
       if (!screenName) {
         skippedNoName++;
-        Logger.log('⚠️ Checked-in guest missing Screen Name (row ' + (guest.rowIndex + 1) + ')');
+        Logger.log('⚠️ Guest missing Screen Name (row ' + (guest.rowIndex + 1) + ')');
         return;
       }
 
       if (!uid) {
         skippedNoUID++;
-        Logger.log('⚠️ Checked-in guest "' + screenName + '" missing UID (row ' + (guest.rowIndex + 1) + ')');
+        Logger.log('⚠️ Guest "' + screenName + '" missing UID (row ' + (guest.rowIndex + 1) + ')');
         return;
       }
 
@@ -105,10 +105,10 @@ function getCompatibilityMatches() {
 
     const checkedInUIDs = Object.keys(checkedInGuests);
     Logger.log('📊 SCAN RESULTS:');
-    Logger.log('   Checked-in guests returned: ' + guests.length);
+    Logger.log('   Total guests returned: ' + guests.length);
     Logger.log('   Skipped (no Screen Name): ' + skippedNoName);
     Logger.log('   Skipped (no UID): ' + skippedNoUID);
-    Logger.log('✅ Valid checked-in guests: ' + checkedInUIDs.length);
+    Logger.log('✅ Valid guests: ' + checkedInUIDs.length);
 
     // Report duplicate UIDs with details
     const duplicateCount = Object.keys(uidOccurrences).length;
@@ -121,26 +121,16 @@ function getCompatibilityMatches() {
     }
 
     // DEBUG: Show first 10 valid guest names
-    Logger.log('📋 First 10 valid checked-in guests:');
+    Logger.log('📋 First 10 valid guests:');
     checkedInUIDs.slice(0, 10).forEach((uid, idx) => {
       Logger.log('   ' + (idx + 1) + '. "' + checkedInGuests[uid].screenName + '" (UID: ' + uid + ')');
     });
-
-    // REQUIREMENT: Need 6+ guests to start matching
-    if (checkedInUIDs.length < 6) {
-      return {
-        matches: [],
-        totalGuests: checkedInUIDs.length,
-        message: 'Waiting for more guests... (' + checkedInUIDs.length + '/6 checked in)',
-        minimumNotMet: true
-      };
-    }
 
     if (checkedInUIDs.length === 0) {
       return {
         matches: [],
         totalGuests: 0,
-        message: 'No checked-in guests found'
+        message: 'No guests found'
       };
     }
 
@@ -148,7 +138,7 @@ function getCompatibilityMatches() {
     const simData = simSheet.getDataRange().getValues();
     const simHeaders = simData[0]; // Row 1: headers (Screen Name (UID))
 
-    // Build column index map for checked-in guests by UID
+    // Build column index map for all guests by UID
     const guestColMap = {}; // Maps UID -> column index
     Logger.log('🔍 Building column map from Guest_Similarity headers...');
     Logger.log('   Total headers in Guest_Similarity: ' + (simHeaders.length - 1));
@@ -165,7 +155,7 @@ function getCompatibilityMatches() {
       }
     }
 
-    Logger.log('   ✅ Matched columns for ' + Object.keys(guestColMap).length + ' checked-in guests');
+    Logger.log('   ✅ Matched columns for ' + Object.keys(guestColMap).length + ' guests');
 
     // STALENESS CHECK: Warn if Guest_Similarity matrix appears outdated
     const matrixGuestCount = simHeaders.length - 1; // Exclude first column (row labels)
@@ -175,15 +165,15 @@ function getCompatibilityMatches() {
     if (matchedGuestCount < checkedInGuestCount * 0.8) {
       Logger.log('⚠️ STALENESS WARNING: Guest_Similarity matrix may be outdated!');
       Logger.log('   - Matrix has ' + matrixGuestCount + ' guests');
-      Logger.log('   - FRC has ' + checkedInGuestCount + ' checked-in guests');
+      Logger.log('   - FRC has ' + checkedInGuestCount + ' total guests');
       Logger.log('   - Only ' + matchedGuestCount + ' matched (' + Math.round(matchedGuestCount / checkedInGuestCount * 100) + '%)');
       Logger.log('   - RECOMMENDATION: Run ANALYTICSTest.buildGuestSimilarity() to rebuild matrix');
     }
 
-    // DEBUG: Show first few checked-in guests and first few similarity headers
+    // DEBUG: Show first few guests and first few similarity headers
     if (Object.keys(guestColMap).length < checkedInUIDs.length) {
       Logger.log('⚠️ MISMATCH DETECTED:');
-      Logger.log('   First 5 checked-in guests from FRC:');
+      Logger.log('   First 5 guests from FRC:');
       checkedInUIDs.slice(0, 5).forEach(uid =>
         Logger.log('     - "' + checkedInGuests[uid].screenName + '" (UID: ' + uid + ')')
       );
@@ -197,7 +187,7 @@ function getCompatibilityMatches() {
       }
     }
 
-    // Build row index map for checked-in guests by UID
+    // Build row index map for all guests by UID
     const guestRowMap = {}; // Maps UID -> row index
     for (let row = 1; row < simData.length; row++) {
       const rowHeader = String(simData[row][0]).trim();
@@ -211,9 +201,9 @@ function getCompatibilityMatches() {
       }
     }
 
-    Logger.log('   ✅ Matched rows for ' + Object.keys(guestRowMap).length + ' checked-in guests');
+    Logger.log('   ✅ Matched rows for ' + Object.keys(guestRowMap).length + ' guests');
 
-    // Extract all similarity pairs for checked-in guests (using UIDs)
+    // Extract all similarity pairs for all guests (using UIDs)
     const matches = [];
     const processedPairs = new Set();
 
@@ -264,7 +254,7 @@ function getCompatibilityMatches() {
     // Return shuffled subset of 50 matches
     const displayMatches = topMatches.slice(0, 50);
 
-    Logger.log('✅ Generated ' + displayMatches.length + ' matches from ' + checkedInUIDs.length + ' checked-in guests');
+    Logger.log('✅ Generated ' + displayMatches.length + ' matches from ' + checkedInUIDs.length + ' total guests');
 
     return {
       matches: displayMatches,
@@ -460,21 +450,13 @@ function getLiveAnalytics() {
       return acc;
     }, []);
 
-    Logger.log('📊 Raw checked-in guests received: ' + rawGuests.length);
+    Logger.log('📊 Raw guests received: ' + rawGuests.length);
 
     if (skippedInvalid > 0) {
-      Logger.log('⚠️ Skipped ' + skippedInvalid + ' checked-in guests missing UID or Screen Name when building analytics');
+      Logger.log('⚠️ Skipped ' + skippedInvalid + ' guests missing UID or Screen Name when building analytics');
     }
 
-    Logger.log('✅ Prepared ' + checkedInGuests.length + ' checked-in guests for live analytics');
-
-    if (checkedInGuests.length < 6) {
-      return {
-        minimumNotMet: true,
-        guestCount: checkedInGuests.length,
-        message: 'Waiting for more guests... (' + checkedInGuests.length + '/6)'
-      };
-    }
+    Logger.log('✅ Prepared ' + checkedInGuests.length + ' guests for live analytics');
 
     // Compute all analytics
     const superlatives = computeSuperlatives(checkedInGuests);
