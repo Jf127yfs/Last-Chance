@@ -893,6 +893,12 @@
         let lastRefresh = Date.now();
         const REFRESH_MS = 15 * 60 * 1000;
 
+        // Major Events System
+        let interactionCount = 0;
+        let lastMajorEvent = Date.now();
+        const MAJOR_EVENT_COOLDOWN = 3 * 60 * 1000; // 3 minutes
+        let activeEvent = null;
+
         function init() {
             createWorld();
             loadVillagers();
@@ -1114,6 +1120,15 @@
             return {success:true, villagers:names.map((n,i)=>({screenName:n,ddd:Math.floor(Math.random()*11)}))};
         }
 
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
         function getLocationByOccupation(industry, role) {
             const ind = (industry || '').toLowerCase();
             const r = (role || '').toLowerCase();
@@ -1150,8 +1165,14 @@
         function onLoad(data) {
             if (!data.success) return;
             const existing = new Set(villagers.map(v=>v.screenName));
-            (data.villagers||[]).forEach(vd => {
-                if (existing.has(vd.screenName)) return;
+
+            // Randomly select 50 guests from all available
+            let availableGuests = (data.villagers || []).filter(vd => !existing.has(vd.screenName));
+            if (availableGuests.length > 50) {
+                availableGuests = shuffleArray(availableGuests).slice(0, 50);
+            }
+
+            availableGuests.forEach(vd => {
                 const isWitch = vd.ddd >= 5;
                 // Assign location based on occupation/industry
                 const locKey = isWitch ? 'WITCHES_WOODS' : getLocationByOccupation(vd.industry, vd.role);
@@ -1359,6 +1380,9 @@ UID: ${v.uid}
             const witches = villagers.filter(v=>v.isWitch);
             const normal = villagers.filter(v=>!v.isWitch);
 
+            // Check for major events
+            checkMajorEvent();
+
             // Witch events
             if (witches.length >= 3 && Math.random()<0.2) {
                 const msgs = [
@@ -1471,6 +1495,7 @@ UID: ${v.uid}
             // Log a random event from all possible ones
             if (events.length > 0) {
                 log(events[Math.floor(Math.random() * events.length)]);
+                interactionCount++; // Track interactions for major events
             }
         }
 
@@ -1567,6 +1592,231 @@ UID: ${v.uid}
 
             // Fire + Air compatible, Earth + Water compatible
             return (z1Fire && z2Air) || (z1Air && z2Fire) || (z1Earth && z2Water) || (z1Water && z2Earth);
+        }
+
+        // ========== MAJOR EVENTS SYSTEM ==========
+
+        function checkMajorEvent() {
+            const now = Date.now();
+            const timeSinceLastEvent = now - lastMajorEvent;
+
+            // Must wait 3 minutes between events
+            if (timeSinceLastEvent < MAJOR_EVENT_COOLDOWN) return;
+
+            // 10-20% chance to trigger when cooldown is ready
+            if (Math.random() > 0.15) return;
+
+            // Calculate weights based on village composition
+            const weights = calculateEventWeights();
+            const event = selectWeightedEvent(weights);
+
+            if (event) {
+                triggerMajorEvent(event);
+                lastMajorEvent = now;
+                interactionCount = 0; // Reset counter
+            }
+        }
+
+        function calculateEventWeights() {
+            const normal = villagers.filter(v => !v.isWitch);
+            const witches = villagers.filter(v => v.isWitch);
+            const total = villagers.length || 1;
+
+            // Count by industry
+            const healthcare = normal.filter(v => {
+                const ind = (v.industry || '').toLowerCase();
+                return ind.includes('health') || ind.includes('medical');
+            }).length;
+
+            const agriculture = normal.filter(v => {
+                const ind = (v.industry || '').toLowerCase();
+                return ind.includes('agricult') || ind.includes('food') || ind.includes('farm');
+            }).length;
+
+            // Count music genres
+            const musicCounts = {};
+            normal.forEach(v => {
+                if (v.music) {
+                    musicCounts[v.music] = (musicCounts[v.music] || 0) + 1;
+                }
+            });
+            const musicMax = Math.max(0, ...Object.values(musicCounts));
+
+            // Count recent purchases
+            const purchases = normal.filter(v => v.recentPurchase).length;
+
+            return {
+                PLAGUE: healthcare / total,
+                BARN_FIRE: agriculture / total,
+                MUSIC_FESTIVAL: musicMax / total,
+                WITCH_TRIAL: witches.length > 0 ? witches.length / total : 0,
+                WEDDING: normal.length >= 2 ? 0.15 : 0, // Needs MM data check
+                MARKET_DAY: purchases / total,
+                HARVEST_FESTIVAL: agriculture / total,
+                BLOOD_MOON: witches.length > 0 ? (witches.length / total) * 1.5 : 0,
+                STORM: 0.12, // Random weather
+                NIGHT_FALL: 0.1 // Time-based
+            };
+        }
+
+        function selectWeightedEvent(weights) {
+            const events = Object.keys(weights).filter(e => weights[e] > 0);
+            if (events.length === 0) return null;
+
+            const totalWeight = events.reduce((sum, e) => sum + weights[e], 0);
+            let random = Math.random() * totalWeight;
+
+            for (const event of events) {
+                random -= weights[event];
+                if (random <= 0) return event;
+            }
+
+            return events[0];
+        }
+
+        function triggerMajorEvent(eventType) {
+            activeEvent = eventType;
+            const normal = villagers.filter(v => !v.isWitch);
+            const witches = villagers.filter(v => v.isWitch);
+
+            switch(eventType) {
+                case 'PLAGUE':
+                    triggerPlague(normal);
+                    break;
+                case 'BARN_FIRE':
+                    triggerBarnFire(normal);
+                    break;
+                case 'MUSIC_FESTIVAL':
+                    triggerMusicFestival(normal);
+                    break;
+                case 'WITCH_TRIAL':
+                    triggerWitchTrial(witches, normal);
+                    break;
+                case 'WEDDING':
+                    triggerWedding(normal);
+                    break;
+                case 'MARKET_DAY':
+                    triggerMarketDay(normal);
+                    break;
+                case 'HARVEST_FESTIVAL':
+                    triggerHarvestFestival(normal);
+                    break;
+                case 'BLOOD_MOON':
+                    triggerBloodMoon(witches);
+                    break;
+                case 'STORM':
+                    triggerStorm(normal);
+                    break;
+                case 'NIGHT_FALL':
+                    triggerNightFall(normal);
+                    break;
+            }
+
+            // Clear event after 30 seconds
+            setTimeout(() => { activeEvent = null; }, 30000);
+        }
+
+        function triggerPlague(villagers) {
+            const v1 = villagers[Math.floor(Math.random() * villagers.length)];
+            const v2 = villagers[Math.floor(Math.random() * villagers.length)];
+            cryer(`🦠 THE PLAGUE STRIKES! @${v1.screenName} collapsed at the ${LOCATIONS[v1.location].name}! @${v2.screenName} tends to the sick!`);
+            log(`🦠 The village is gripped by plague! The Hospital overflows...`);
+        }
+
+        function triggerBarnFire(villagers) {
+            const v1 = villagers[Math.floor(Math.random() * villagers.length)];
+            const v2 = villagers[Math.floor(Math.random() * villagers.length)];
+            cryer(`🔥 BARN FIRE! @${v1.screenName} spotted flames at the Farm! @${v2.screenName} forms a bucket brigade!`);
+            log(`🔥 The barn is ablaze! Villagers rush to help!`);
+        }
+
+        function triggerMusicFestival(villagers) {
+            // Find most common music genre
+            const musicCounts = {};
+            villagers.forEach(v => {
+                if (v.music) musicCounts[v.music] = (musicCounts[v.music] || 0) + 1;
+            });
+            const topGenre = Object.keys(musicCounts).sort((a,b) => musicCounts[b] - musicCounts[a])[0] || 'music';
+
+            const performer = villagers.find(v => v.music === topGenre) || villagers[0];
+            const v2 = villagers[Math.floor(Math.random() * villagers.length)];
+
+            cryer(`🎵 MUSIC FESTIVAL! @${performer.screenName} performs ${topGenre} at the Inn! @${v2.screenName} cheers wildly!`);
+            log(`🎶 The Inn transforms into a concert hall! ${topGenre.toUpperCase()} fills the air!`);
+        }
+
+        function triggerWitchTrial(witches, normal) {
+            if (witches.length === 0) return;
+            const witch = witches[Math.floor(Math.random() * witches.length)];
+            const v1 = normal[Math.floor(Math.random() * normal.length)];
+            const v2 = normal[Math.floor(Math.random() * normal.length)];
+
+            cryer(`⚖️ WITCH TRIAL! The village accuses @${witch.screenName}! @${v1.screenName} demands justice! @${v2.screenName} calls for mercy!`);
+            log(`⚖️ Tensions rise as the village debates @${witch.screenName}'s fate...`, true);
+        }
+
+        function triggerWedding(villagers) {
+            if (villagers.length < 2) return;
+
+            // For now, pick two random villagers (will integrate MM data later)
+            const v1 = villagers[Math.floor(Math.random() * villagers.length)];
+            let v2 = villagers[Math.floor(Math.random() * villagers.length)];
+            while (v2.id === v1.id && villagers.length > 1) {
+                v2 = villagers[Math.floor(Math.random() * villagers.length)];
+            }
+
+            const compatibility = Math.floor(Math.random() * 30) + 70; // 70-100% for wedding
+            cryer(`💒 SURPRISE WEDDING! @${v1.screenName} and @${v2.screenName} are getting married at Town Square! ${compatibility}% compatible!`);
+            log(`💕 The whole village celebrates the union of @${v1.screenName} and @${v2.screenName}!`);
+        }
+
+        function triggerMarketDay(villagers) {
+            const seller = villagers.find(v => v.recentPurchase) || villagers[0];
+            const buyer = villagers[Math.floor(Math.random() * villagers.length)];
+            const item = seller.recentPurchase || 'handmade goods';
+
+            cryer(`💰 MARKET DAY! @${seller.screenName} hawks ${item} at Town Square! @${buyer.screenName} haggles fiercely!`);
+            log(`🛍️ The Town Square erupts in a trading frenzy!`);
+        }
+
+        function triggerHarvestFestival(villagers) {
+            const farmer = villagers.find(v => {
+                const ind = (v.industry || '').toLowerCase();
+                return ind.includes('agricult') || ind.includes('food') || ind.includes('farm');
+            }) || villagers[0];
+            const v2 = villagers[Math.floor(Math.random() * villagers.length)];
+
+            cryer(`🎪 HARVEST FESTIVAL! @${farmer.screenName} celebrates the bounty! @${v2.screenName} brings fresh-baked bread!`);
+            log(`🌾 The village gathers to celebrate the harvest season!`);
+        }
+
+        function triggerBloodMoon(witches) {
+            if (witches.length === 0) return;
+            const witch = witches[Math.floor(Math.random() * witches.length)];
+
+            cryer(`🌟 THE BLOOD MOON RISES! @${witch.screenName}'s power surges! Magic crackles through the air!`);
+            log(`🔮 An eerie red glow bathes the village... the witches grow stronger...`, true);
+
+            // Visual effect
+            document.getElementById('curseOverlay').style.background = 'radial-gradient(circle at 85% 22%, rgba(139, 0, 0, 0.4) 0%, transparent 50%)';
+        }
+
+        function triggerStorm(villagers) {
+            const v1 = villagers[Math.floor(Math.random() * villagers.length)];
+            const v2 = villagers[Math.floor(Math.random() * villagers.length)];
+
+            cryer(`⛈️ STORM APPROACHING! Thunder rumbles! @${v1.screenName} runs to the Library! @${v2.screenName} takes cover at the Inn!`);
+            log(`⚡ Lightning cracks across the sky! The village seeks shelter!`);
+        }
+
+        function triggerNightFall(villagers) {
+            const v1 = villagers[Math.floor(Math.random() * villagers.length)];
+
+            cryer(`🌙 NIGHT FALLS UPON THE VILLAGE! @${v1.screenName} lights the lanterns as darkness descends...`);
+            log(`🌙 The sun sets. Stars emerge. The village settles into evening...`);
+
+            // Visual effect
+            document.querySelector('.day-filter').style.background = 'rgba(0, 0, 40, 0.4)';
         }
 
         function log(msg, isWitch) {
