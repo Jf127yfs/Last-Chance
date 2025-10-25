@@ -103,6 +103,10 @@
       background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     }
 
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
     .message {
       padding: 15px;
       border-radius: 10px;
@@ -128,6 +132,12 @@
       border: 1px solid #bee5eb;
     }
 
+    .message.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
     .guest-info {
       background: #f8f9fa;
       padding: 20px;
@@ -140,6 +150,28 @@
       color: #333;
       margin-bottom: 15px;
       font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.checked-in {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-badge.not-checked-in {
+      background: #fff3cd;
+      color: #856404;
     }
 
     .info-row {
@@ -179,6 +211,7 @@
       cursor: pointer;
       font-size: 14px;
       font-weight: 600;
+      white-space: nowrap;
     }
 
     .edit-btn:hover {
@@ -204,13 +237,28 @@
       margin-top: 15px;
     }
 
+    .photo-preview-container {
+      margin-top: 15px;
+      text-align: center;
+    }
+
     .photo-preview {
-      width: 100%;
-      max-height: 200px;
+      width: 150px;
+      height: 150px;
       object-fit: cover;
-      border-radius: 10px;
-      margin-top: 10px;
+      border-radius: 50%;
+      margin: 10px auto;
       display: none;
+      border: 3px solid #667eea;
+    }
+
+    .current-photo {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 3px solid #667eea;
+      margin: 10px 0;
     }
 
     .spinner {
@@ -238,50 +286,44 @@
     input[type="file"] {
       padding: 8px;
     }
+
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🎉 Guest Portal</h1>
-    <p class="subtitle">Verify your identity to access your profile</p>
+    <p class="subtitle">Find your profile by screen name</p>
 
     <div id="message" class="message"></div>
     <div id="spinner" class="spinner"></div>
 
-    <!-- Check-In Form -->
-    <form id="checkInForm">
+    <!-- Search Form -->
+    <form id="searchForm">
       <div class="form-group">
-        <label for="zip">ZIP Code *</label>
-        <input type="text" id="zip" name="zip" placeholder="12345" maxlength="5" required>
-        <div class="help-text">Enter your 5-digit ZIP code</div>
+        <label for="screenName">Your Screen Name *</label>
+        <input type="text" id="screenName" name="screenName" placeholder="Enter your screen name" required autocomplete="off">
+        <div class="help-text">Type the screen name you registered with</div>
       </div>
 
-      <div class="form-group">
-        <label for="gender">Gender *</label>
-        <select id="gender" name="gender" required>
-          <option value="">Select your gender</option>
-          <option value="man">Man</option>
-          <option value="woman">Woman</option>
-          <option value="nonbinary">Non-binary</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="dob">Birthday (MM/DD) *</label>
-        <input type="text" id="dob" name="dob" placeholder="03/15" maxlength="5" required>
-        <div class="help-text">Format: MM/DD (e.g., 03/15)</div>
-      </div>
-
-      <button type="submit" class="btn" id="checkInBtn">Verify Identity</button>
+      <button type="submit" class="btn" id="searchBtn">Find My Profile</button>
     </form>
 
-    <!-- Guest Info (shown after verification) -->
+    <!-- Guest Info (shown after search) -->
     <div id="guestInfo" class="guest-info">
-      <h2>✅ Verified!</h2>
+      <h2>
+        <span id="guestIcon">👤</span>
+        <span id="guestNameTitle"></span>
+        <span id="statusBadge" class="status-badge"></span>
+      </h2>
 
       <div class="info-row">
-        <div class="info-label">Your Screen Name</div>
+        <div class="info-label">Screen Name</div>
         <div class="screen-name-display">
           <div class="info-value" id="screenNameDisplay"></div>
           <button class="edit-btn" onclick="showEditScreenName()">Edit</button>
@@ -289,13 +331,29 @@
       </div>
 
       <div class="info-row">
-        <div class="info-label">Your UID</div>
+        <div class="info-label">UID</div>
         <div class="info-value" id="uidDisplay"></div>
       </div>
 
       <div class="info-row">
-        <button class="btn btn-secondary" onclick="showPhotoUpload()">📷 Upload Photo</button>
+        <div class="info-label">Check-In Status</div>
+        <div class="info-value" id="checkinStatus"></div>
       </div>
+
+      <div id="photoSection" class="info-row">
+        <div class="info-label">Current Photo</div>
+        <div class="photo-preview-container">
+          <img id="currentPhoto" class="current-photo" alt="Your photo">
+          <div id="noPhoto" style="color: #999; font-size: 14px; display: none;">No photo uploaded yet</div>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-secondary" onclick="showEditScreenName()">✏️ Edit Name</button>
+        <button class="btn btn-success" onclick="showPhotoUpload()">📷 Upload Photo</button>
+      </div>
+
+      <button class="btn" style="margin-top: 15px;" onclick="searchAnother()">🔍 Search Another Guest</button>
 
       <!-- Edit Screen Name Section -->
       <div id="editScreenName" class="edit-section">
@@ -304,7 +362,7 @@
           <input type="text" id="newScreenName" placeholder="Enter new screen name" maxlength="50">
           <div class="help-text">3-50 characters</div>
         </div>
-        <button class="btn" onclick="updateScreenName()">Save New Name</button>
+        <button class="btn" onclick="updateScreenName()">💾 Save New Name</button>
         <button class="btn btn-secondary" onclick="hideEditScreenName()">Cancel</button>
       </div>
 
@@ -313,10 +371,12 @@
         <h3>Upload Your Photo</h3>
         <div class="form-group photo-upload">
           <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto()">
-          <div class="help-text">Max 5MB, JPG or PNG</div>
-          <img id="photoPreview" class="photo-preview" alt="Photo preview">
+          <div class="help-text">Max 5MB, JPG or PNG recommended</div>
+          <div class="photo-preview-container">
+            <img id="photoPreview" class="photo-preview" alt="Photo preview">
+          </div>
         </div>
-        <button class="btn" onclick="uploadPhoto()">Upload Photo</button>
+        <button class="btn" onclick="uploadPhoto()">📤 Upload Photo</button>
         <button class="btn btn-secondary" onclick="hidePhotoUpload()">Cancel</button>
       </div>
     </div>
@@ -325,59 +385,93 @@
   <script>
     let currentGuest = null;
 
-    // Check-In Form Handler
-    document.getElementById('checkInForm').addEventListener('submit', function(e) {
+    // Search Form Handler
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
       e.preventDefault();
 
-      const zip = document.getElementById('zip').value.trim();
-      const gender = document.getElementById('gender').value;
-      const dob = document.getElementById('dob').value.trim();
+      const screenName = document.getElementById('screenName').value.trim();
 
-      // Validate DOB format
-      if (!dob.match(/^\d{1,2}\/\d{1,2}$/)) {
-        showMessage('Please use MM/DD format for birthday (e.g., 03/15)', 'error');
+      if (!screenName) {
+        showMessage('Please enter a screen name', 'error');
         return;
       }
 
       showSpinner(true);
-      showMessage('Verifying identity...', 'info');
+      showMessage('Searching for ' + screenName + '...', 'info');
 
       google.script.run
-        .withSuccessHandler(onCheckInSuccess)
-        .withFailureHandler(onCheckInError)
-        .checkInGuest(zip, gender, dob);
+        .withSuccessHandler(onSearchSuccess)
+        .withFailureHandler(onSearchError)
+        .findGuestByScreenName(screenName);
     });
 
-    function onCheckInSuccess(result) {
+    function onSearchSuccess(result) {
       showSpinner(false);
 
-      if (!result || result.ok === undefined) {
-        showMessage('Invalid response from server. Please try again.', 'error');
+      if (!result || !result.ok) {
+        showMessage(result?.message || 'Guest not found. Please check the screen name and try again.', 'error');
         return;
       }
 
-      if (result.ok) {
-        currentGuest = {
-          screenName: result.screenName,
-          uid: result.uid
-        };
+      currentGuest = {
+        screenName: result.screenName,
+        uid: result.uid,
+        checkedIn: result.checkedIn,
+        photoUrl: result.photoUrl
+      };
 
-        document.getElementById('screenNameDisplay').textContent = result.screenName || 'N/A';
-        document.getElementById('uidDisplay').textContent = result.uid || 'N/A';
+      // Update display
+      document.getElementById('guestNameTitle').textContent = result.screenName;
+      document.getElementById('screenNameDisplay').textContent = result.screenName;
+      document.getElementById('uidDisplay').textContent = result.uid;
 
-        showMessage(result.message, 'success');
+      // Update check-in status
+      const statusBadge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('checkinStatus');
 
-        // Hide form, show guest info
-        document.getElementById('checkInForm').style.display = 'none';
-        document.getElementById('guestInfo').style.display = 'block';
+      if (result.checkedIn) {
+        statusBadge.textContent = 'Checked In';
+        statusBadge.className = 'status-badge checked-in';
+        statusText.textContent = '✅ Checked in at ' + (result.checkInTime || 'Unknown time');
+        statusText.style.color = '#155724';
       } else {
-        showMessage(result.message || 'Verification failed. Please try again.', 'error');
+        statusBadge.textContent = 'Not Checked In';
+        statusBadge.className = 'status-badge not-checked-in';
+        statusText.textContent = '⏳ Not yet checked in';
+        statusText.style.color = '#856404';
       }
+
+      // Update photo display
+      if (result.photoUrl) {
+        document.getElementById('currentPhoto').src = result.photoUrl;
+        document.getElementById('currentPhoto').style.display = 'block';
+        document.getElementById('noPhoto').style.display = 'none';
+      } else {
+        document.getElementById('currentPhoto').style.display = 'none';
+        document.getElementById('noPhoto').style.display = 'block';
+      }
+
+      showMessage('✅ Found guest: ' + result.screenName, 'success');
+
+      // Hide form, show guest info
+      document.getElementById('searchForm').style.display = 'none';
+      document.getElementById('guestInfo').style.display = 'block';
     }
 
-    function onCheckInError(error) {
+    function onSearchError(error) {
       showSpinner(false);
       showMessage('Error: ' + error.message, 'error');
+    }
+
+    function searchAnother() {
+      // Reset form
+      document.getElementById('searchForm').style.display = 'block';
+      document.getElementById('guestInfo').style.display = 'none';
+      document.getElementById('screenName').value = '';
+      document.getElementById('message').style.display = 'none';
+      currentGuest = null;
+      hideEditScreenName();
+      hidePhotoUpload();
     }
 
     // Screen Name Edit Functions
@@ -420,10 +514,11 @@
       if (result && result.ok) {
         currentGuest.screenName = result.newScreenName;
         document.getElementById('screenNameDisplay').textContent = result.newScreenName;
-        showMessage(result.message, 'success');
+        document.getElementById('guestNameTitle').textContent = result.newScreenName;
+        showMessage('✅ Screen name updated successfully!', 'success');
         hideEditScreenName();
       } else {
-        showMessage(result.message || 'Update failed', 'error');
+        showMessage(result?.message || 'Update failed', 'error');
       }
     }
 
@@ -492,10 +587,19 @@
       showSpinner(false);
 
       if (result && result.ok) {
-        showMessage(result.message, 'success');
+        showMessage('✅ Photo uploaded successfully!', 'success');
+
+        // Update current photo display
+        if (result.photoUrl) {
+          currentGuest.photoUrl = result.photoUrl;
+          document.getElementById('currentPhoto').src = result.photoUrl;
+          document.getElementById('currentPhoto').style.display = 'block';
+          document.getElementById('noPhoto').style.display = 'none';
+        }
+
         hidePhotoUpload();
       } else {
-        showMessage(result.message || 'Upload failed', 'error');
+        showMessage(result?.message || 'Upload failed', 'error');
       }
     }
 

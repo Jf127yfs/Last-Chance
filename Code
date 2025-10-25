@@ -1246,9 +1246,99 @@ function updateGuestScreenName(uidOrPayload, newScreenName) {
 }
 
 /**
+ * Find guest by screen name
+ * Called from CheckInInterface.html
+ * Returns guest info including check-in status
+ *
+ * @param {string} screenName - Screen name to search for
+ * @returns {object} {ok: true/false, screenName, uid, checkedIn, checkInTime, photoUrl}
+ */
+function findGuestByScreenName(screenName) {
+  Logger.log('=== FIND GUEST BY SCREEN NAME ===');
+  Logger.log('Searching for: "' + screenName + '"');
+
+  try {
+    if (!screenName) {
+      return {
+        ok: false,
+        message: 'Screen name is required'
+      };
+    }
+
+    const searchName = String(screenName).trim().toLowerCase();
+    const sheet = getFRCSheet();
+    const data = sheet.getDataRange().getValues();
+
+    Logger.log(`📊 Sheet has ${data.length} rows`);
+
+    // Search for matching guest by screen name (case-insensitive)
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowScreenName = String(row[CONFIG.COL.SCREEN_NAME] || '').trim();
+
+      if (rowScreenName.toLowerCase() === searchName) {
+        const uid = String(row[CONFIG.COL.UID] || '').trim();
+        const checkedIn = row[CONFIG.COL.CHECKED_IN] || false;
+        const checkInTime = row[CONFIG.COL.CHECKIN_TIME] || null;
+        const photoUrl = row[CONFIG.COL.PHOTO_URL] || '';
+
+        Logger.log(`✅ MATCH FOUND at row ${i+1}:`);
+        Logger.log(`   Screen Name: ${rowScreenName}`);
+        Logger.log(`   UID: ${uid}`);
+        Logger.log(`   Checked In: ${checkedIn}`);
+        Logger.log(`   Check-In Time: ${checkInTime}`);
+
+        // Format check-in time if available
+        let formattedCheckInTime = '';
+        if (checkInTime) {
+          try {
+            const date = new Date(checkInTime);
+            formattedCheckInTime = date.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+          } catch (e) {
+            formattedCheckInTime = String(checkInTime);
+          }
+        }
+
+        return {
+          ok: true,
+          screenName: rowScreenName,
+          uid: uid,
+          checkedIn: Boolean(checkedIn),
+          checkInTime: formattedCheckInTime,
+          photoUrl: photoUrl || '',
+          message: 'Guest found successfully'
+        };
+      }
+    }
+
+    // No match found
+    Logger.log('❌ No matching guest found');
+    Logger.log(`Searched ${data.length - 1} guest records`);
+    return {
+      ok: false,
+      message: `Guest "${screenName}" not found. Please check the spelling and try again.`
+    };
+
+  } catch (error) {
+    Logger.log('❌ ERROR: ' + error.toString());
+    Logger.log('Stack: ' + error.stack);
+    return {
+      ok: false,
+      message: 'System error: ' + error.message
+    };
+  }
+}
+
+/**
  * Upload guest photo to Google Drive
  * Called from CheckInInterface.html
- * 
+ *
  * Can accept either:
  * 1. Four separate parameters: uploadGuestPhoto(uid, fileName, mimeType, base64Data)
  * 2. One object parameter: uploadGuestPhoto({uid, fileName, mimeType, base64Data})
