@@ -67,10 +67,26 @@ function getIntroText() {
 function getZipCodesFromSheet() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(MAP_CONFIG.SHEET_NAME);
+    let sheet = ss.getSheetByName(MAP_CONFIG.SHEET_NAME);
+
+    // Try fallback sheet names if 'FRC' not found
+    if (!sheet) {
+      Logger.log('Sheet "' + MAP_CONFIG.SHEET_NAME + '" not found, trying alternate names...');
+
+      // Try common alternate names
+      const alternateNames = ['Form Responses (Clean)', 'Form Responses Clean', 'FRC_Backup'];
+      for (const altName of alternateNames) {
+        sheet = ss.getSheetByName(altName);
+        if (sheet) {
+          Logger.log('✓ Found alternate sheet: "' + altName + '" - Please rename to "FRC" for consistency');
+          break;
+        }
+      }
+    }
 
     if (!sheet) {
-      throw new Error('Sheet "' + MAP_CONFIG.SHEET_NAME + '" not found. Please verify sheet name in SheetLocations file.');
+      const availableSheets = ss.getSheets().map(s => s.getName()).join(', ');
+      throw new Error('Sheet "' + MAP_CONFIG.SHEET_NAME + '" not found. Available sheets: ' + availableSheets + '. Please rename your data sheet to "FRC"');
     }
 
     const lastRow = sheet.getLastRow();
