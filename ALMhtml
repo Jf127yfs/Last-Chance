@@ -206,6 +206,8 @@
       border-radius: 15px;
       padding: 25px;
       box-shadow: 0 10px 40px var(--shadow);
+      position: relative;
+      overflow: hidden;
     }
 
     .team-name {
@@ -268,18 +270,184 @@
       margin-bottom: 10px;
       overflow: hidden;
       background: var(--dark-bg);
+      position: relative;
+      box-shadow: 0 0 20px rgba(233, 30, 99, 0.3);
     }
 
     .dancer-card.focal .dancer-photo {
-      width: 110px;
-      height: 110px;
+      width: 130px;
+      height: 130px;
       border-color: var(--gold);
-      border-width: 4px;
+      border-width: 5px;
+      box-shadow:
+        0 0 30px rgba(255, 183, 77, 0.6),
+        0 0 60px rgba(255, 183, 77, 0.3),
+        inset 0 0 20px rgba(255, 183, 77, 0.1);
     }
 
     .pyramid-row.row-3 .dancer-photo {
       width: 95px;
       height: 95px;
+    }
+
+    /* Spotlight Effect */
+    .spotlight {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 183, 77, 0.3) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    .spotlight.active {
+      opacity: 1;
+      animation: spotlight-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes spotlight-pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.6;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+      }
+    }
+
+    /* Rank Badge */
+    .rank-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 35px;
+      height: 35px;
+      background: linear-gradient(135deg, var(--gold) 0%, #ff9800 100%);
+      border: 3px solid #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      color: #000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 10;
+      animation: badge-spin 0.6s ease-out;
+    }
+
+    @keyframes badge-spin {
+      from { transform: rotate(-360deg) scale(0); }
+      to { transform: rotate(0) scale(1); }
+    }
+
+    /* Glitter Particle */
+    .glitter-particle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: var(--gold);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 200;
+      box-shadow: 0 0 10px var(--gold);
+      animation: glitter-float 1.5s ease-out forwards;
+    }
+
+    @keyframes glitter-float {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(var(--tx), var(--ty)) scale(0.2);
+      }
+    }
+
+    /* Abby's Commentary Bubble */
+    .commentary-bubble {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      background: rgba(233, 30, 99, 0.95);
+      color: #fff;
+      padding: 20px 30px;
+      border-radius: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      z-index: 300;
+      border: 4px solid var(--gold);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      max-width: 600px;
+      opacity: 0;
+    }
+
+    .commentary-bubble.show {
+      animation: bubble-pop 0.5s ease-out forwards;
+    }
+
+    @keyframes bubble-pop {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0);
+      }
+      70% {
+        transform: translate(-50%, -50%) scale(1.1);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    .commentary-bubble::before {
+      content: '👑';
+      position: absolute;
+      top: -25px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 40px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    }
+
+    /* Tension Countdown */
+    .tension-countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 120px;
+      font-weight: bold;
+      color: var(--gold);
+      text-shadow: 0 0 40px rgba(255, 183, 77, 0.8);
+      z-index: 250;
+      opacity: 0;
+    }
+
+    .tension-countdown.show {
+      animation: countdown-appear 1s ease-out forwards;
+    }
+
+    @keyframes countdown-appear {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(2);
+      }
+      50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+      }
     }
 
     /* Pyramid Build Animations */
@@ -874,6 +1042,15 @@
 
     <!-- Center: Pyramid Section -->
     <div class="pyramid-section">
+      <!-- Spotlight Effect -->
+      <div class="spotlight" id="spotlight"></div>
+
+      <!-- Tension Countdown -->
+      <div class="tension-countdown" id="tensionCountdown"></div>
+
+      <!-- Commentary Bubble -->
+      <div class="commentary-bubble" id="commentaryBubble"></div>
+
       <div class="team-name" id="teamName">Loading...</div>
 
       <div class="pyramid" id="pyramidDisplay">
@@ -1282,35 +1459,41 @@
       // Update team name
       document.getElementById('teamName').textContent = team.teamName;
 
-      // Build pyramid (initially invisible)
+      // Build pyramid (initially invisible) with rank numbers
       const pyramid = document.getElementById('pyramidDisplay');
       pyramid.innerHTML = `
-        <!-- Row 1: Focal -->
+        <!-- Row 1: Focal (#1) -->
         <div class="pyramid-row row-1">
-          ${buildDancerCard(team.focal, true, 'FOCAL', 'focal-card')}
+          ${buildDancerCard(team.focal, true, 'FOCAL', 'focal-card', 1)}
         </div>
 
-        <!-- Row 2: 2 dancers -->
+        <!-- Row 2: 2 dancers (#2, #3) -->
         <div class="pyramid-row row-2">
-          ${team.row2.map((d, i) => buildDancerCard(d, false, '', 'row2-card-' + i)).join('')}
+          ${team.row2.map((d, i) => buildDancerCard(d, false, '', 'row2-card-' + i, i + 2)).join('')}
         </div>
 
-        <!-- Row 3: 3 dancers -->
+        <!-- Row 3: 3 dancers (#4, #5, #6) -->
         <div class="pyramid-row row-3">
-          ${team.row3.map((d, i) => buildDancerCard(d, false, '', 'row3-card-' + i)).join('')}
+          ${team.row3.map((d, i) => buildDancerCard(d, false, '', 'row3-card-' + i, i + 4)).join('')}
         </div>
       `;
 
-      // Reset countdown timer
-      state.countdownSeconds = 12;
+      // Reset countdown timer (will start after 12 second pyramid build)
+      state.countdownSeconds = 8;
       document.getElementById('countdownTimer').textContent = 'Building pyramid...';
 
       // Hide Abby's verdict during build
       const verdictEl = document.getElementById('abbyVerdict');
       verdictEl.classList.remove('visible');
 
-      // Animate pyramid building (8 seconds total)
+      // Animate pyramid building (12 seconds total with all dramatic effects)
       animatePyramidBuild();
+
+      // Start countdown after pyramid is built (at 12 seconds)
+      setTimeout(() => {
+        document.getElementById('countdownTimer').textContent = `Next team in ${state.countdownSeconds}s`;
+        startCountdown();
+      }, 12000);
 
       // Update stats (visible after pyramid builds)
       setTimeout(() => {
@@ -1342,9 +1525,6 @@
         quoteEl.textContent = team.abbyQuote;
         quoteEl.classList.remove('typing');
 
-        // Start countdown after build completes
-        startCountdown();
-
         // Show Abby's verdict with slide-up animation (after 1s pause)
         setTimeout(() => {
           verdictEl.classList.add('visible');
@@ -1359,44 +1539,201 @@
             }, 2000);
           }, 500);
         }, 1000);
-      }, 8000);
+      }, 12000); // Updated to 12 seconds to match new pyramid build time
     }
 
+    // ========== DRAMATIC EFFECTS HELPERS ==========
+
+    function createGlitterBurst(element, count = 20) {
+      const rect = element.getBoundingClientRect();
+      const parent = document.getElementById('pyramidDisplay');
+      const parentRect = parent.getBoundingClientRect();
+
+      for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'glitter-particle';
+
+        const angle = (Math.random() * 360) * Math.PI / 180;
+        const distance = 50 + Math.random() * 100;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+
+        particle.style.left = (rect.left - parentRect.left + rect.width / 2) + 'px';
+        particle.style.top = (rect.top - parentRect.top + rect.height / 2) + 'px';
+        particle.style.setProperty('--tx', tx + 'px');
+        particle.style.setProperty('--ty', ty + 'px');
+        particle.style.animationDelay = (Math.random() * 0.3) + 's';
+
+        parent.appendChild(particle);
+
+        setTimeout(() => particle.remove(), 1800);
+      }
+    }
+
+    function showCommentary(message, duration = 2500) {
+      const bubble = document.getElementById('commentaryBubble');
+      bubble.textContent = message;
+      bubble.classList.add('show');
+
+      setTimeout(() => {
+        bubble.classList.remove('show');
+      }, duration);
+    }
+
+    function showTensionCountdown(number) {
+      const countdown = document.getElementById('tensionCountdown');
+      countdown.textContent = number;
+      countdown.classList.add('show');
+
+      setTimeout(() => {
+        countdown.classList.remove('show');
+      }, 1000);
+    }
+
+    function positionSpotlight(element) {
+      const spotlight = document.getElementById('spotlight');
+      const pyramid = document.getElementById('pyramidDisplay');
+      const rect = element.getBoundingClientRect();
+      const pyramidRect = pyramid.getBoundingClientRect();
+
+      spotlight.style.left = (rect.left - pyramidRect.left + rect.width / 2 - 150) + 'px';
+      spotlight.style.top = (rect.top - pyramidRect.top + rect.height / 2 - 150) + 'px';
+      spotlight.classList.add('active');
+    }
+
+    function hideSpotlight() {
+      const spotlight = document.getElementById('spotlight');
+      spotlight.classList.remove('active');
+    }
+
+    const ABBY_QUOTES = [
+      "This is MY pyramid!",
+      "Everyone can be replaced!",
+      "Save your tears for your pillow!",
+      "You need to bring it!",
+      "This is a COMPETITION team!",
+      "The top of the pyramid is EARNED!",
+      "I'm not asking, I'm telling!",
+      "Dance like your life depends on it!",
+      "Perfection is the only option!",
+      "Eye of the tiger, ladies!"
+    ];
+
     function animatePyramidBuild() {
-      // 0-2s: Leader bounces in
+      // Initial commentary
+      setTimeout(() => {
+        showCommentary(ABBY_QUOTES[Math.floor(Math.random() * ABBY_QUOTES.length)]);
+      }, 200);
+
+      // ===== 0-3s: FOCAL DANCER (Rank #1) =====
+
+      // Tension countdown: 3...
+      setTimeout(() => showTensionCountdown('3'), 500);
+
+      // Tension countdown: 2...
+      setTimeout(() => showTensionCountdown('2'), 1500);
+
+      // Tension countdown: 1...
+      setTimeout(() => showTensionCountdown('1'), 2500);
+
+      // REVEAL FOCAL (Rank #1)
       setTimeout(() => {
         const focalCard = document.querySelector('.focal-card');
         if (focalCard) {
           focalCard.classList.add('animate-bounce');
+          positionSpotlight(focalCard);
+
+          // Glitter burst!
+          setTimeout(() => {
+            createGlitterBurst(focalCard, 30);
+          }, 400);
         }
-      }, 100);
+      }, 3500);
 
-      // 2-5s: Row 2 dancers slide in (staggered)
+      // Commentary on focal
       setTimeout(() => {
-        const row2Card0 = document.querySelector('.row2-card-0');
-        if (row2Card0) row2Card0.classList.add('animate-slide');
-      }, 2000);
+        showCommentary("At the top of my pyramid...");
+      }, 4000);
 
-      setTimeout(() => {
-        const row2Card1 = document.querySelector('.row2-card-1');
-        if (row2Card1) row2Card1.classList.add('animate-slide');
-      }, 2400);
+      // ===== 5-7s: ROW 2 DANCERS (Ranks #2, #3) =====
 
-      // 5-8s: Row 3 dancers slide in (staggered)
-      setTimeout(() => {
-        const row3Card0 = document.querySelector('.row3-card-0');
-        if (row3Card0) row3Card0.classList.add('animate-slide');
-      }, 5000);
+      setTimeout(() => hideSpotlight(), 5000);
 
       setTimeout(() => {
-        const row3Card1 = document.querySelector('.row3-card-1');
-        if (row3Card1) row3Card1.classList.add('animate-slide');
-      }, 5400);
+        showCommentary("Next up, my middle tier!");
+      }, 5200);
+
+      // Reveal Row 2, Card 0 (Rank #2)
+      setTimeout(() => {
+        const card = document.querySelector('.row2-card-0');
+        if (card) {
+          card.classList.add('animate-slide');
+          positionSpotlight(card);
+          setTimeout(() => createGlitterBurst(card, 15), 300);
+        }
+      }, 5500);
+
+      // Reveal Row 2, Card 1 (Rank #3)
+      setTimeout(() => {
+        const card = document.querySelector('.row2-card-1');
+        if (card) {
+          card.classList.add('animate-slide');
+          positionSpotlight(card);
+          setTimeout(() => createGlitterBurst(card, 15), 300);
+        }
+      }, 6200);
+
+      // ===== 8-12s: ROW 3 DANCERS (Ranks #4, #5, #6) =====
+
+      setTimeout(() => hideSpotlight(), 7500);
 
       setTimeout(() => {
-        const row3Card2 = document.querySelector('.row3-card-2');
-        if (row3Card2) row3Card2.classList.add('animate-slide');
-      }, 5800);
+        showCommentary("And at the bottom...");
+      }, 7800);
+
+      // Reveal Row 3, Card 0 (Rank #4)
+      setTimeout(() => {
+        const card = document.querySelector('.row3-card-0');
+        if (card) {
+          card.classList.add('animate-slide');
+          positionSpotlight(card);
+          setTimeout(() => createGlitterBurst(card, 12), 300);
+        }
+      }, 8500);
+
+      // Reveal Row 3, Card 1 (Rank #5)
+      setTimeout(() => {
+        const card = document.querySelector('.row3-card-1');
+        if (card) {
+          card.classList.add('animate-slide');
+          positionSpotlight(card);
+          setTimeout(() => createGlitterBurst(card, 12), 300);
+        }
+      }, 9200);
+
+      // Reveal Row 3, Card 2 (Rank #6)
+      setTimeout(() => {
+        const card = document.querySelector('.row3-card-2');
+        if (card) {
+          card.classList.add('animate-slide');
+          positionSpotlight(card);
+          setTimeout(() => createGlitterBurst(card, 12), 300);
+        }
+      }, 9900);
+
+      // Final commentary
+      setTimeout(() => {
+        hideSpotlight();
+        showCommentary("Now prove you deserve these spots!", 3000);
+      }, 11000);
+
+      // Huge glitter finale
+      setTimeout(() => {
+        const allCards = document.querySelectorAll('.dancer-card');
+        allCards.forEach((card, i) => {
+          setTimeout(() => createGlitterBurst(card, 20), i * 100);
+        });
+      }, 11500);
     }
 
     function animateCompatibilityBar(avgSimilarity) {
@@ -1420,13 +1757,15 @@
       }, 100);
     }
 
-    function buildDancerCard(dancer, isFocal, label, cardId = '') {
+    function buildDancerCard(dancer, isFocal, label, cardId = '', rank = null) {
       const cardClass = isFocal ? 'dancer-card focal' : 'dancer-card';
       const matchPercent = dancer.similarity ? Math.round(dancer.similarity * 100) + '%' : '';
       const idAttr = cardId ? ` ${cardId}` : '';
+      const rankBadge = rank ? `<div class="rank-badge">${rank}</div>` : '';
 
       return `
-        <div class="${cardClass}${idAttr}">
+        <div class="${cardClass}${idAttr}" data-rank="${rank || ''}">
+          ${rankBadge}
           <div class="dancer-photo">
             ${dancer.photoUrl
               ? `<img src="${escapeHtml(dancer.photoUrl)}" alt="${escapeHtml(dancer.screenName)}">`
