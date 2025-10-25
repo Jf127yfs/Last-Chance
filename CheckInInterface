@@ -164,53 +164,6 @@
       color: #333;
     }
     
-    .photo-section {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 2px solid #e0e0e0;
-    }
-    
-    .file-input-wrapper {
-      position: relative;
-      overflow: hidden;
-      display: inline-block;
-      width: 100%;
-    }
-    
-    .file-input-wrapper input[type=file] {
-      position: absolute;
-      left: -9999px;
-    }
-    
-    .file-label {
-      display: block;
-      padding: 12px 16px;
-      background: white;
-      border: 2px dashed #667eea;
-      border-radius: 10px;
-      text-align: center;
-      cursor: pointer;
-      color: #667eea;
-      font-weight: 600;
-      transition: background 0.3s;
-    }
-    
-    .file-label:hover {
-      background: #f8f9ff;
-    }
-    
-    .photo-preview {
-      margin-top: 15px;
-      text-align: center;
-      display: none;
-    }
-    
-    .photo-preview img {
-      max-width: 100%;
-      max-height: 300px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
     
     .spinner {
       border: 3px solid #f3f3f3;
@@ -227,14 +180,7 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    
-    .screen-name-section {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 2px solid #e0e0e0;
-      display: none;
-    }
-    
+
     .help-text {
       font-size: 12px;
       color: #888;
@@ -302,31 +248,6 @@
       <div class="info-row">
         <span class="info-label">UID:</span>
         <span class="info-value" id="uid"></span>
-      </div>
-      
-      <!-- Screen Name Update Section -->
-      <div class="screen-name-section" id="screenNameSection">
-        <h3 style="margin-bottom: 10px; font-size: 16px;">Update Screen Name</h3>
-        <div class="form-group">
-          <input type="text" id="newScreenName" placeholder="Enter new screen name" maxlength="50">
-          <div class="help-text">3-50 characters</div>
-        </div>
-        <button class="btn" id="updateNameBtn">Update Name</button>
-      </div>
-      
-      <!-- Photo Upload Section -->
-      <div class="photo-section">
-        <h3 style="margin-bottom: 10px; font-size: 16px;">📸 Upload Your Photo</h3>
-        <div class="file-input-wrapper">
-          <input type="file" id="photoInput" accept="image/*" capture="environment">
-          <label for="photoInput" class="file-label">
-            📷 Take or Choose Photo
-          </label>
-        </div>
-        <div id="photoPreview" class="photo-preview">
-          <img id="previewImg" src="" alt="Preview">
-        </div>
-        <button class="btn" id="uploadPhotoBtn" style="display: none; margin-top: 15px;">Upload Photo</button>
       </div>
     </div>
   </div>
@@ -410,15 +331,14 @@
         document.getElementById('uid').textContent = result.uid || 'N/A';
         
         if (result.alreadyCheckedIn) {
-          showMessage(result.message + ' You can update your info or upload a photo.', 'info');
+          showMessage(result.message, 'info');
         } else {
           showMessage(result.message, 'success');
         }
-        
+
         // Hide form, show guest info
         document.getElementById('checkInForm').style.display = 'none';
         document.getElementById('guestInfo').style.display = 'block';
-        document.getElementById('screenNameSection').style.display = 'block';
       } else {
         showMessage(result.message || 'Check-in failed. Please try again.', 'error');
       }
@@ -429,131 +349,7 @@
       showMessage('Error: ' + error.message, 'error');
       debugLog('Check-in error', error);
     }
-    
-    // Screen Name Update Handler
-    document.getElementById('updateNameBtn').addEventListener('click', function() {
-      const newName = document.getElementById('newScreenName').value.trim();
-      
-      if (!newName) {
-        showMessage('Please enter a new screen name', 'error');
-        return;
-      }
-      
-      if (newName.length < 3) {
-        showMessage('Screen name must be at least 3 characters', 'error');
-        return;
-      }
-      
-      showSpinner(true);
-      showMessage('Updating screen name...', 'info');
-      
-      google.script.run
-        .withSuccessHandler(onNameUpdateSuccess)
-        .withFailureHandler(onNameUpdateError)
-        .updateGuestScreenName({uid: currentGuest.uid, newScreenName: newName});
-    });
-    
-    function onNameUpdateSuccess(result) {
-      showSpinner(false);
-      
-      if (!result || result.ok === undefined) {
-        showMessage('Invalid response from server', 'warning');
-        return;
-      }
-      
-      if (result.ok) {
-        showMessage(result.message, 'success');
-        document.getElementById('screenName').textContent = result.newScreenName;
-        currentGuest.screenName = result.newScreenName;
-        document.getElementById('newScreenName').value = '';
-      } else {
-        showMessage(result.message, 'error');
-      }
-    }
-    
-    function onNameUpdateError(error) {
-      showSpinner(false);
-      showMessage('Error updating name: ' + error.message, 'error');
-    }
-    
-    // Photo Input Handler
-    document.getElementById('photoInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        showMessage('Please select an image file', 'error');
-        return;
-      }
-      
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        showMessage('Image must be smaller than 10MB', 'error');
-        return;
-      }
-      
-      // Show preview
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById('previewImg').src = e.target.result;
-        document.getElementById('photoPreview').style.display = 'block';
-        document.getElementById('uploadPhotoBtn').style.display = 'block';
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    // Photo Upload Handler
-    document.getElementById('uploadPhotoBtn').addEventListener('click', function() {
-      const fileInput = document.getElementById('photoInput');
-      const file = fileInput.files[0];
-      
-      if (!file) {
-        showMessage('Please select a photo first', 'error');
-        return;
-      }
-      
-      showSpinner(true);
-      showMessage('Uploading photo...', 'info');
-      
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const base64Data = e.target.result.split(',')[1]; // Remove data:image/...;base64, prefix
-        
-        google.script.run
-          .withSuccessHandler(onPhotoUploadSuccess)
-          .withFailureHandler(onPhotoUploadError)
-          .uploadGuestPhoto({
-            uid: currentGuest.uid,
-            fileName: file.name,
-            mimeType: file.type,
-            base64Data: base64Data
-          });
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    function onPhotoUploadSuccess(result) {
-      showSpinner(false);
-      
-      if (!result || result.ok === undefined) {
-        showMessage('Invalid response from server', 'warning');
-        return;
-      }
-      
-      if (result.ok) {
-        showMessage(result.message + ' ✅', 'success');
-        document.getElementById('uploadPhotoBtn').style.display = 'none';
-      } else {
-        showMessage(result.message, 'error');
-      }
-    }
-    
-    function onPhotoUploadError(error) {
-      showSpinner(false);
-      showMessage('Error uploading photo: ' + error.message, 'error');
-    }
-    
+
     // Utility Functions
     function showMessage(text, type) {
       const msgDiv = document.getElementById('message');
