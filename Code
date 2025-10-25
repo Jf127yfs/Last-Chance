@@ -1130,41 +1130,25 @@ function uploadGuestPhoto(uidOrPayload, fileName, mimeType, base64Data) {
  *
  * @returns {object} {success: true, villagers: [{screenName, ddd}, ...]}
  */
+/**
+ * Get active villagers for map display
+ * Returns enhanced data for front-end compatibility
+ * Delegates to FVCode for hamlet assignment
+ */
 function getActiveVillagersForMap() {
   try {
-    const sheet = getFRCSheet();
-    if (!sheet) {
-      throw new Error('FRC sheet not found');
-    }
+    const guests = getCheckedInGuests();
 
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-
-    // Find column indices
-    const screenNameIdx = headers.indexOf('Screen Name');
-    const checkedInIdx = headers.indexOf('Checked-In');
-    const frcIdx = headers.indexOf('FRC');
-
-    if (screenNameIdx === -1 || checkedInIdx === -1) {
-      throw new Error('Required columns not found in FRC sheet');
-    }
-
-    const villagers = [];
-
-    // Loop through all rows (skip header)
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const screenName = String(row[screenNameIdx] || '').trim();
-      const ddd = frcIdx >= 0 ? (parseInt(row[frcIdx]) || 0) : 0;
-
-      // Include all guests with screen names (removed check-in filter)
-      if (screenName) {
-        villagers.push({
-          screenName: screenName,
-          ddd: ddd
-        });
-      }
-    }
+    // Build villager data with all fields for front-end
+    const villagers = guests
+      .filter(g => g.screenName) // Only guests with screen names
+      .map(g => ({
+        uid: g.uid,
+        screenName: g.screenName,
+        ddd: g.dddScore || 0,
+        interests: [g.interest1, g.interest2, g.interest3].filter(Boolean),
+        socialStance: g.socialStance || 3
+      }));
 
     Logger.log(`FV: Found ${villagers.length} total villagers`);
 
